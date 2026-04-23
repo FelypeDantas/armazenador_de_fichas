@@ -225,22 +225,24 @@ export default function MembrosPage() {
 
                   {/* 🔥 resto da ficha */}
                   <div className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words">
-                    {ficha.conteudo.split("\n").map((line, idx) => {
-                      if (idx === 0) return null; // já usamos acima
-
-                      if (!line.includes(":")) return <p key={idx}>{line}</p>;
-
-                      const index = line.indexOf(":");
-
-                      const k = index !== -1 ? line.slice(0, index) : line;
-                      const v = index !== -1 ? line.slice(index + 1) : "";
-
-                      return (
-                        <p key={idx}>
-                          <strong>{k}:</strong> {v}
-                        </p>
-                      );
-                    })}
+                          {ficha.conteudo.split("\n").map((line, idx) => {
+                            if (idx === 0) return null;
+                        
+                            const index = line.indexOf(":");
+                        
+                            if (index === -1) {
+                              return <p key={idx}>{line}</p>;
+                            }
+                        
+                            const k = line.slice(0, index);
+                            const v = line.slice(index + 1);
+                        
+                            return (
+                              <p key={idx}>
+                                <strong>{k}:</strong>{v}
+                              </p>
+                            );
+                          })}
                   </div>
 
                   {/* AÇÕES */}
