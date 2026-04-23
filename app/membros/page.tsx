@@ -36,6 +36,21 @@ function extractFirstLine(text: string) {
 }
 
 /* ─────────────────────────────────────────────
+    🧹 UTIL: limpar formatação do WhatsApp (para edição)
+───────────────────────────────────────────── */
+function limparFormatacaoWhatsApp(text: string) {
+  return text
+    // remove negrito/itálico do WhatsApp
+    .replace(/\*/g, "")
+    .replace(/_/g, "")
+    .replace(/~/g, "")
+    .replace(/```/g, "")
+    // remove espaços duplicados estranhos
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+/* ─────────────────────────────────────────────
    📲 WhatsApp format (inclui negrito no nome)
 ───────────────────────────────────────────── */
 function formatarParaWhatsApp(text: string) {
@@ -269,7 +284,10 @@ export default function MembrosPage() {
                   {/* AÇÕES */}
                   <div className="flex gap-2 mt-4 flex-wrap">
                     <button
-                      onClick={() => setSelected(ficha)}
+                      onClick={() => {
+                        setSelected(ficha);
+                        setEditText(limparFormatacaoWhatsApp(ficha.conteudo));
+                      }}
                       className="text-xs px-3 py-1 rounded-lg bg-blue-500/10 text-blue-500"
                     >
                       Editar
