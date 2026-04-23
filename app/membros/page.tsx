@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
 
 type Ficha = {
   id: string;
