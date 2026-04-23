@@ -224,7 +224,7 @@ export default function MembrosPage() {
                   </p>
 
                   {/* 🔥 resto da ficha */}
-                  <div className="text-sm text-zinc-600 dark:text-zinc-300 line-clamp-6 whitespace-pre-line">
+                  <div className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words">
                     {ficha.conteudo.split("\n").map((line, idx) => {
                       if (idx === 0) return null; // já usamos acima
 
