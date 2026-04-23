@@ -16,19 +16,6 @@ type ApiResponse = {
 };
 
 /* ─────────────────────────────────────────────
-   🧠 UTIL: título (mantido como fallback)
-───────────────────────────────────────────── */
-function extractTitle(text: string) {
-  const match = text
-    .split("\n")
-    .find((l) => /t[ií]tulo/i.test(l));
-
-  if (!match) return "Ficha sem título";
-
-  return match.replace(/.*:/, "").trim() || "Ficha sem título";
-}
-
-/* ─────────────────────────────────────────────
    👤 UTIL: primeira linha = nome da pessoa
 ───────────────────────────────────────────── */
 function extractFirstLine(text: string) {
