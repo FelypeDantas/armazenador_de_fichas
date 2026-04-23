@@ -225,24 +225,34 @@ export default function MembrosPage() {
 
                   {/* 🔥 resto da ficha */}
                   <div className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words">
-                          {ficha.conteudo.split("\n").map((line, idx) => {
-                            if (idx === 0) return null;
-                        
-                            const index = line.indexOf(":");
-                        
-                            if (index === -1) {
-                              return <p key={idx}>{line}</p>;
-                            }
-                        
-                            const k = line.slice(0, index);
-                            const v = line.slice(index + 1);
-                        
-                            return (
-                              <p key={idx}>
-                                <strong>{k}:</strong>{v}
-                              </p>
-                            );
-                          })}
+                    {ficha.conteudo.split("\n").map((line, idx) => {
+                      if (idx === 0) return null;
+
+                      const isQtdPalavras = /quantidade de palavras/i.test(line);
+
+                      if (isQtdPalavras) {
+                        return (
+                          <p key={idx} className="font-bold">
+                            {line}
+                          </p>
+                        );
+                      }
+
+                      const index = line.indexOf(":");
+
+                      if (index === -1) {
+                        return <p key={idx}>{line}</p>;
+                      }
+
+                      const k = line.slice(0, index);
+                      const v = line.slice(index + 1);
+
+                      return (
+                        <p key={idx}>
+                          <strong>{k}:</strong>{v}
+                        </p>
+                      );
+                    })}
                   </div>
 
                   {/* AÇÕES */}
@@ -321,6 +331,16 @@ export default function MembrosPage() {
 
                     if (!line.includes(":")) {
                       return <p key={idx}>{line}</p>;
+                    }
+
+                    const isQtdPalavras = /quantidade de palavras/i.test(line);
+
+                    if (isQtdPalavras) {
+                      return (
+                        <p key={idx} className="font-bold">
+                          {line}
+                        </p>
+                      );
                     }
 
                     const index = line.indexOf(":");
