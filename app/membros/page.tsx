@@ -15,6 +15,59 @@ type ApiResponse = {
   error?: string;
 };
 
+/* ─────────────────────────────────────────────
+   🧠 UTIL: título (mantido como fallback)
+───────────────────────────────────────────── */
+function extractTitle(text: string) {
+  const match = text
+    .split("\n")
+    .find((l) => /t[ií]tulo/i.test(l));
+
+  if (!match) return "Ficha sem título";
+
+  return match.replace(/.*:/, "").trim() || "Ficha sem título";
+}
+
+/* ─────────────────────────────────────────────
+   👤 UTIL: primeira linha = nome da pessoa
+───────────────────────────────────────────── */
+function extractFirstLine(text: string) {
+  return text.split("\n")[0] || "Sem nome";
+}
+
+/* ─────────────────────────────────────────────
+   📲 WhatsApp format (inclui negrito no nome)
+───────────────────────────────────────────── */
+function formatarParaWhatsApp(text: string) {
+  return text
+    .split("\n")
+    .map((line, index) => {
+      const isFirst = index === 0;
+
+      // 👤 nome da pessoa
+      if (isFirst) {
+        return `*${line.trim()}*`;
+      }
+
+      // 🧠 campos padrão
+      if (!line.includes(":")) return line;
+
+      const [key, value] = line.split(":");
+
+      return `*${key.trim()}:* ${value.trim()}`;
+    })
+    .join("\n");
+}
+
+/* ─────────────────────────────────────────────
+   📋 COPY
+───────────────────────────────────────────── */
+async function copiarFicha(text: string) {
+  const formatado = formatarParaWhatsApp(text);
+  await navigator.clipboard.writeText(formatado);
+  alert("Ficha copiada para WhatsApp ✨");
+}
+
 export default function MembrosPage() {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +77,9 @@ export default function MembrosPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 📦 FETCH
+  /* ─────────────────────────────────────────────
+     📦 FETCH
+  ───────────────────────────────────────────── */
   useEffect(() => {
     let active = true;
 
@@ -34,7 +89,6 @@ export default function MembrosPage() {
         setError(null);
 
         const res = await fetch("/api/fichas");
-
         const json: ApiResponse = await res.json().catch(() => ({}));
 
         if (!res.ok) {
@@ -46,7 +100,6 @@ export default function MembrosPage() {
         setFichas(Array.isArray(json.data) ? json.data : []);
       } catch (err) {
         console.error(err);
-
         if (active) {
           setError("Não foi possível carregar as fichas.");
           setFichas([]);
@@ -57,13 +110,14 @@ export default function MembrosPage() {
     }
 
     load();
-
     return () => {
       active = false;
     };
   }, []);
 
-  // 🔍 FILTRO
+  /* ─────────────────────────────────────────────
+     🔍 FILTRO
+  ───────────────────────────────────────────── */
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return fichas;
@@ -73,35 +127,9 @@ export default function MembrosPage() {
     );
   }, [search, fichas]);
 
-  // 🧠 título
-  function extractTitle(text: string) {
-    const match = text
-      .split("\n")
-      .find((l) => /t[ií]tulo/i.test(l));
-
-    if (!match) return "Ficha sem título";
-
-    return match.replace(/.*:/, "").trim() || "Ficha sem título";
-  }
-
-  // 🔁 abrir modal já preenchendo edição
-  useEffect(() => {
-    if (selected) {
-      setEditText(selected.conteudo);
-    }
-  }, [selected]);
-
-  // ⌨️ ESC fecha
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected(null);
-    };
-
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, []);
-
-  // ✏️ UPDATE
+  /* ─────────────────────────────────────────────
+     ✏️ UPDATE
+  ───────────────────────────────────────────── */
   async function handleUpdate() {
     if (!selected) return;
 
@@ -110,17 +138,13 @@ export default function MembrosPage() {
 
       const res = await fetch(`/api/fichas/${selected.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conteudo: editText }),
       });
 
       const json = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        throw new Error(json.error || "Erro ao atualizar");
-      }
+      if (!res.ok) throw new Error(json.error);
 
       setFichas((prev) =>
         prev.map((f) =>
@@ -137,7 +161,9 @@ export default function MembrosPage() {
     }
   }
 
-  // 🗑️ DELETE
+  /* ─────────────────────────────────────────────
+     🗑️ DELETE
+  ───────────────────────────────────────────── */
   async function handleDelete(id: string) {
     if (!confirm("Deseja excluir essa ficha?")) return;
 
@@ -148,9 +174,7 @@ export default function MembrosPage() {
 
       if (!res.ok) throw new Error();
 
-      setFichas((prev) =>
-        prev.filter((f) => f.id !== id)
-      );
+      setFichas((prev) => prev.filter((f) => f.id !== id));
     } catch {
       alert("Erro ao excluir ficha");
     }
@@ -178,23 +202,10 @@ export default function MembrosPage() {
           />
         </header>
 
-        {/* ERROR */}
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
-            {error}
-          </div>
-        )}
-
-        {/* LOADING */}
-        {loading && (
-          <div className="text-gray-500 animate-pulse">
-            Carregando fichas...
-          </div>
-        )}
-
         {/* GRID */}
         {!loading && filtered.length > 0 && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
             <AnimatePresence>
               {filtered.map((ficha, i) => (
                 <motion.article
@@ -204,32 +215,45 @@ export default function MembrosPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: i * 0.02 }}
-                  className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition"
+                  className="bg-white dark:bg-zinc-900 border rounded-2xl p-5"
                 >
-                  <div
-                    onClick={() => setSelected(ficha)}
-                    className="cursor-pointer"
-                  >
-                    <h2 className="font-semibold mb-2 text-[var(--primary)]">
-                      {extractTitle(ficha.conteudo)}
-                    </h2>
 
-                    <p className="text-sm text-zinc-600 dark:text-zinc-300 line-clamp-6">
-                      {ficha.conteudo}
-                    </p>
+                  {/* 👤 PRIMEIRA LINHA EM NEGRITO (NÃO É TÍTULO) */}
+                  <p className="font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+                    {extractFirstLine(ficha.conteudo)}
+                  </p>
 
-                    <span className="text-xs text-gray-400 mt-3 block">
-                      {new Date(ficha.created_at).toLocaleDateString("pt-BR")}
-                    </span>
+                  {/* 🔥 resto da ficha */}
+                  <div className="text-sm text-zinc-600 dark:text-zinc-300 line-clamp-6 whitespace-pre-line">
+                    {ficha.conteudo.split("\n").map((line, idx) => {
+                      if (idx === 0) return null; // já usamos acima
+
+                      if (!line.includes(":")) return <p key={idx}>{line}</p>;
+
+                      const [k, v] = line.split(":");
+
+                      return (
+                        <p key={idx}>
+                          <strong>{k}:</strong> {v}
+                        </p>
+                      );
+                    })}
                   </div>
 
                   {/* AÇÕES */}
-                  <div className="flex gap-2 mt-4">
+                  <div className="flex gap-2 mt-4 flex-wrap">
                     <button
                       onClick={() => setSelected(ficha)}
                       className="text-xs px-3 py-1 rounded-lg bg-blue-500/10 text-blue-500"
                     >
                       Editar
+                    </button>
+
+                    <button
+                      onClick={() => copiarFicha(ficha.conteudo)}
+                      className="text-xs px-3 py-1 rounded-lg bg-green-500/10 text-green-500"
+                    >
+                      Copiar
                     </button>
 
                     <button
@@ -239,9 +263,11 @@ export default function MembrosPage() {
                       Excluir
                     </button>
                   </div>
+
                 </motion.article>
               ))}
             </AnimatePresence>
+
           </div>
         )}
 
@@ -253,9 +279,11 @@ export default function MembrosPage() {
               : "Nenhuma ficha cadastrada ainda."}
           </div>
         )}
+
       </div>
 
-      {/* MODAL */}
+      {/* MODAL (EDITOR MELHORADO COM PREVIEW) */}
+      {/* MODAL COM COMPARAÇÃO (ORIGINAL x EDIT) */}
       <AnimatePresence>
         {selected && (
           <motion.div
@@ -266,33 +294,67 @@ export default function MembrosPage() {
             onClick={() => setSelected(null)}
           >
             <motion.div
-              className="bg-white dark:bg-zinc-900 max-w-3xl w-full max-h-[85vh] overflow-auto p-6 rounded-2xl"
-              initial={{ scale: 0.85, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.85, y: 20 }}
+              className="bg-white dark:bg-zinc-900 max-w-6xl w-full p-6 rounded-2xl grid md:grid-cols-2 gap-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-lg font-bold mb-4">
-                Editar ficha
-              </h2>
 
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full h-60 p-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent"
-              />
+              {/* 📌 ORIGINAL */}
+              <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 overflow-auto max-h-[75vh]">
+                <h3 className="text-sm font-bold text-gray-500 mb-3">
+                  Original (Banco de Dados)
+                </h3>
 
-              <button
-                onClick={handleUpdate}
-                disabled={saving}
-                className="mt-4 w-full bg-[var(--primary)] text-white py-2 rounded-xl"
-              >
-                {saving ? "Salvando..." : "Salvar alterações"}
-              </button>
+                {/* 👤 nome */}
+                <p className="font-bold text-lg mb-3">
+                  {selected.conteudo.split("\n")[0]}
+                </p>
+
+                {/* 📄 conteúdo original */}
+                <div className="text-sm space-y-1 text-zinc-600 dark:text-zinc-300 whitespace-pre-line">
+                  {selected.conteudo.split("\n").map((line, idx) => {
+                    if (idx === 0) return null;
+
+                    if (!line.includes(":")) {
+                      return <p key={idx}>{line}</p>;
+                    }
+
+                    const [k, v] = line.split(":");
+
+                    return (
+                      <p key={idx}>
+                        <strong>{k}:</strong> {v}
+                      </p>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ✏️ EDITOR */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-500 mb-3">
+                  Edição (tempo real)
+                </h3>
+
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full h-[60vh] p-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent font-mono text-sm"
+                />
+
+                <button
+                  onClick={handleUpdate}
+                  disabled={saving}
+                  className="mt-4 w-full bg-[var(--primary)] text-white py-2 rounded-xl"
+                >
+                  {saving ? "Salvando..." : "Salvar alterações"}
+                </button>
+              </div>
+
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
     </main>
   );
 }
