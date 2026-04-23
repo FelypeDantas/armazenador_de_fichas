@@ -10,7 +10,7 @@ import { useState } from "react";
 const links = [
   { name: "Início", href: "/", icon: Home },
   { name: "Membros", href: "/membros", icon: Users },
-  { name: "Configurações", href: "/config", icon: Settings },
+  { name: "Grade", href: "/grade", icon: Settings },
 ];
 
 export default function Navbar() {
