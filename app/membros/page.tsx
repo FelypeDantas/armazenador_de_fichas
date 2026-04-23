@@ -160,30 +160,30 @@ export default function MembrosPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--fg)] px-6 py-10">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--fg)] px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
       <div className="max-w-6xl mx-auto">
 
         {/* HEADER */}
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">
+       <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">
             Membros cadastrados
           </h1>
 
-          <p className="text-sm text-gray-500 mt-1">
-            Arquivo vivo de todas as fichas enviadas
+           <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              Arquivo vivo de todas as fichas enviadas
           </p>
 
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar dentro das fichas..."
-            className="mt-4 w-full md:w-1/2 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-          />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar dentro das fichas..."
+              className="mt-4 w-full sm:w-2/3 lg:w-1/2 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            />
         </header>
 
         {/* GRID */}
         {!loading && filtered.length > 0 && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
 
             <AnimatePresence>
               {filtered.map((ficha, i) => (
@@ -194,7 +194,7 @@ export default function MembrosPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: i * 0.02 }}
-                  className="bg-white dark:bg-zinc-900 border rounded-2xl p-5"
+                  className="bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition"
                 >
 
                   {/* 👤 PRIMEIRA LINHA EM NEGRITO (NÃO É TÍTULO) */}
@@ -235,13 +235,13 @@ export default function MembrosPage() {
                   </div>
 
                   {/* AÇÕES */}
-                  <div className="flex gap-2 mt-4 flex-wrap">
+                 <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => {
                         setSelected(ficha);
                         setEditText(limparFormatacaoWhatsApp(ficha.conteudo));
                       }}
-                      className="text-xs px-3 py-1 rounded-lg bg-blue-500/10 text-blue-500"
+                      className="text-xs sm:text-sm px-3 py-1.5 rounded-lg"
                     >
                       Editar
                     </button>
@@ -291,12 +291,12 @@ export default function MembrosPage() {
             onClick={() => setSelected(null)}
           >
             <motion.div
-              className="bg-white dark:bg-zinc-900 max-w-6xl w-full p-6 rounded-2xl grid md:grid-cols-2 gap-6"
+              className="bg-white dark:bg-zinc-900 w-full max-w-6xl h-full sm:h-auto p-4 sm:p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
 
               {/* 📌 ORIGINAL */}
-              <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 overflow-auto max-h-[75vh]">
+              <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 overflow-auto max-h-[50vh] sm:max-h-[70vh]">
                 <h3 className="text-sm font-bold text-gray-500 mb-3">
                   Original (Banco de Dados)
                 </h3>
@@ -348,7 +348,7 @@ export default function MembrosPage() {
                 <textarea
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
-                  className="w-full h-[60vh] p-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent font-mono text-sm"
+                  className="w-full h-[50vh] sm:h-[60vh]"
                 />
 
                 <button
