@@ -230,7 +230,10 @@ export default function MembrosPage() {
 
                       if (!line.includes(":")) return <p key={idx}>{line}</p>;
 
-                      const [k, v] = line.split(":");
+                      const index = line.indexOf(":");
+
+                      const k = index !== -1 ? line.slice(0, index) : line;
+                      const v = index !== -1 ? line.slice(index + 1) : "";
 
                       return (
                         <p key={idx}>
