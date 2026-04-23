@@ -1,62 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useTheme } from "next-themes";
+import { ReactNode, useEffect, useState } from "react";
 
-type Theme = "dark" | "light";
+export function ThemeToggle({ children }: { children?: ReactNode }) {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-const STORAGE_KEY = "theme";
+  useEffect(() => setMounted(true), []);
 
-function getSystemTheme(): Theme {
-  if (typeof window === "undefined") return "light";
+  if (!mounted) return null;
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function getStoredTheme(): Theme | null {
-  if (typeof window === "undefined") return null;
-
-  const value = localStorage.getItem(STORAGE_KEY);
-  return value === "dark" || value === "light" ? value : null;
-}
-
-function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  localStorage.setItem(STORAGE_KEY, theme);
-}
-
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    return getStoredTheme() ?? getSystemTheme();
-  });
-
-  // 🌱 aplica tema SEM mounted state
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  }, []);
+  const isDark = resolvedTheme === "dark";
 
   return (
-    <button
-      onClick={toggleTheme}
-      aria-label="Alternar tema"
-      className="
-        relative w-12 h-12 rounded-full
-        flex items-center justify-center
-        bg-gradient-to-br from-rose-500 to-pink-600
-        text-white shadow-lg
-        transition-all duration-300
-        hover:scale-110 active:scale-95
-      "
-    >
-      <span className="text-xl">
-        {theme === "dark" ? "🌙" : "☀️"}
-      </span>
+    <button onClick={() => setTheme(isDark ? "light" : "dark")}>
+      {children}
     </button>
   );
 }
