@@ -17,6 +17,10 @@ export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  if (pathname === "/login" || pathname === "/cadastrar") {
+    return null;
+  }
+
   return (
     <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/30 border-b border-white/10">
       <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -38,11 +42,10 @@ export default function Navbar() {
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl transition
-                  ${
-                    isActive
+                  ${isActive
                       ? "bg-rose-600/20 text-rose-400"
                       : "text-gray-300 hover:text-white hover:bg-white/5"
-                  }`}
+                    }`}
                 >
                   <Icon size={18} />
                   {link.name}
@@ -97,11 +100,10 @@ export default function Navbar() {
                   >
                     <div
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition
-                      ${
-                        isActive
+                      ${isActive
                           ? "bg-rose-600/20 text-rose-400"
                           : "text-gray-300 hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       <Icon size={18} />
                       {link.name}
