@@ -2,113 +2,219 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import {
+    DndContext,
+    closestCenter,
+    DragEndEvent,
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    useSortable,
+    verticalListSortingStrategy,
+    arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
 
-// 🔌 Supabase (seguro)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 🔌 Supabase
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+);
 
-// 🧾 Estrutura REAL do banco
+// 🧾 Tipos
 interface Ficha {
-    id: string; // uuid
-    conteudo: string; // texto completo
+    id: string;
+    conteudo: string;
     deletado?: boolean | null;
 }
 
-type Selecoes = Record<string, string | null>;
+type Dia = {
+    id: string;
+    fichaId: string | null;
+};
 
-const diasBase: string[] = [
-    "Segunda",
-    "Terça",
-    "Quarta",
-    "Quinta",
-    "Sexta",
-    "Obra extra",
-];
+// 🧠 helpers
+const uid = () => crypto.randomUUID();
+
+function criarDiasBase(): Dia[] {
+    return Array.from({ length: 6 }).map(() => ({
+        id: uid(),
+        fichaId: null,
+    }));
+}
+
+const nomesSemana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+// 🧱 item arrastável
+function SortableItem({
+    id,
+    children,
+}: {
+    id: string;
+    children: React.ReactNode;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition } =
+        useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+            {children}
+        </div>
+    );
+}
 
 export default function GradePage() {
-    const [nomeGrade, setNomeGrade] = useState<string>("Vale de Poesias");
-    const [dias, setDias] = useState<string[]>(diasBase);
-    const [selecoes, setSelecoes] = useState<Selecoes>({});
+    const [nomeGrade, setNomeGrade] = useState("Vale de Poesias");
+    const [dias, setDias] = useState<Dia[]>(criarDiasBase());
     const [fichas, setFichas] = useState<Ficha[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
     const [busca, setBusca] = useState("");
 
-    // 🚀 Buscar fichas corretamente
-    useEffect(() => {
-        async function fetchFichas() {
-            setLoading(true);
-            setErro(null);
+    const [isExtendida, setIsExtendida] = useState(false);
+    const [dataInicio, setDataInicio] = useState("");
 
+    // 🚀 fetch reutilizável
+    async function fetchFichas() {
+        setLoading(true);
+        setErro(null);
+
+        try {
             const { data, error } = await supabase
                 .from("fichas")
                 .select("id, conteudo, deletado")
-                .not("deletado", "eq", true); // evita problema com null
+                .not("deletado", "eq", true);
 
-            if (error) {
-                console.error(error);
-                setErro(error.message);
-                setLoading(false);
-                return;
-            }
+            if (error) throw error;
 
             setFichas(data || []);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setErro(err.message);
+            } else {
+                setErro("Erro inesperado ao carregar fichas");
+            }
+        } finally {
             setLoading(false);
         }
+    }
 
+    useEffect(() => {
         fetchFichas();
     }, []);
 
-    // 🔍 Busca dentro do conteúdo
+    // 🔍 filtro
     const fichasFiltradas = useMemo(() => {
         return fichas.filter((f) =>
             f.conteudo.toLowerCase().includes(busca.toLowerCase())
         );
     }, [busca, fichas]);
 
-    function selecionarFicha(dia: string, fichaId: string) {
-        setSelecoes((prev) => ({
-            ...prev,
-            [dia]: fichaId || null, // 🔥 corrigido (era number antes)
-        }));
+    // 🧠 data segura
+    function getDataBase(): Date {
+        if (!dataInicio) return new Date();
+
+        const d = new Date(dataInicio);
+        return isNaN(d.getTime()) ? new Date() : d;
     }
 
-    function moverDia(index: number, direcao: number) {
-        const novo = [...dias];
-        const destino = index + direcao;
+    // 🧠 nome dia
+    function getNomeDia(index: number) {
+        if (index === dias.length - 1) return "Obra extra";
 
-        if (destino < 0 || destino >= dias.length) return;
+        const data = getDataBase();
+        data.setDate(data.getDate() + index);
 
-        [novo[index], novo[destino]] = [novo[destino], novo[index]];
-        setDias(novo);
+        return `${nomesSemana[data.getDay()]} (${data.toLocaleDateString("pt-BR")})`;
     }
 
-    // 🧠 Pega primeira linha da ficha pra exibir no select
+    function selecionarFicha(diaId: string, fichaId: string) {
+        setDias((prev) =>
+            prev.map((d) =>
+                d.id === diaId ? { ...d, fichaId: fichaId || null } : d
+            )
+        );
+    }
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) return;
+
+        setDias((items) => {
+            const oldIndex = items.findIndex(i => i.id === active.id);
+            const newIndex = items.findIndex(i => i.id === over.id);
+
+            if (oldIndex === -1 || newIndex === -1) return items;
+
+            const lastIndex = items.length - 1;
+
+            if (oldIndex === lastIndex || newIndex === lastIndex) {
+                return items;
+            }
+
+            return arrayMove(items, oldIndex, newIndex);
+        });
+    }
+
+    function gerarGradeEstendida(total: number) {
+        const lista: Dia[] = [];
+        const data = getDataBase();
+
+        while (lista.length < total) {
+            const diaSemana = data.getDay();
+
+            if (diaSemana !== 0 && diaSemana !== 6) {
+                lista.push({ id: uid(), fichaId: null });
+            }
+
+            data.setDate(data.getDate() + 1);
+        }
+
+        lista.push({ id: uid(), fichaId: null });
+        return lista;
+    }
+
+    function toggleExtendida() {
+        setDias(() => {
+            if (isExtendida) {
+                setIsExtendida(false);
+                return criarDiasBase();
+            } else {
+                setIsExtendida(true);
+                return gerarGradeEstendida(10);
+            }
+        });
+    }
+
     function extrairTitulo(conteudo: string) {
-        const linha = conteudo.split("\n")[0];
-        return linha.replace(/\*/g, "").slice(0, 60) || "Ficha";
+        return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
-    function gerarTexto(): string {
+    function gerarTexto() {
         let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
         texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
         texto += `📜 Grade Oficial da Semana 📜\n`;
         texto += `❛ ━━━━━━━━━━━━━━━━ ❜\n`;
 
-        dias.forEach((dia) => {
-            const ficha = fichas.find((f) => f.id === selecoes[dia]);
+        dias.forEach((dia, index) => {
+            const ficha = fichas.find((f) => f.id === dia.fichaId);
 
-            texto += `\n❛ ${dia} ❜\n\n`;
+            texto += `❛ ${getNomeDia(index)} ❜\n\n`;
 
             if (ficha) {
-                texto += formatarParaWhatsApp(ficha.conteudo) + "\n"; // 🔥 usa conteúdo direto
-                texto += "◃───────────────────────────────▹\n";
+                texto += formatarParaWhatsApp(ficha.conteudo) + "\n";
             } else {
-                texto += `*(Nenhuma ficha selecionada)*\n`;
-                texto += `◃───────────────────────────────▹\n`;
+                texto += "*(Nenhuma ficha selecionada)*\n";
             }
+
+            texto += "──────────────\n";
         });
 
         return texto;
@@ -127,83 +233,114 @@ export default function GradePage() {
         <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6">
             <div className="max-w-5xl mx-auto space-y-6">
 
-                <h1 className="text-2xl sm:text-3xl font-bold text-pink-500">
+                <h1 className="text-3xl font-bold text-pink-500">
                     Criador de Grade 🌹
                 </h1>
 
                 <input
                     value={nomeGrade}
                     onChange={(e) => setNomeGrade(e.target.value)}
-                    className="w-full p-3 rounded bg-zinc-800 border border-zinc-700 text-sm sm:text-base"
-                    placeholder="Nome da grade"
+                    className="w-full p-3 rounded bg-zinc-800 border border-zinc-700"
                 />
 
-                {/* 🔍 Busca */}
+                <input
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
+                />
+
                 <input
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
                     placeholder="Buscar ficha..."
-                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-sm sm:text-base"
+                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
                 />
 
-                {loading && <p className="text-zinc-400">Carregando fichas...</p>}
-                {erro && <p className="text-red-500">Erro: {erro}</p>}
+                <button
+                    onClick={toggleExtendida}
+                    className="bg-purple-600 px-4 py-2 rounded"
+                >
+                    {isExtendida ? "Desativar grade estendida" : "Ativar grade estendida"}
+                </button>
 
-                {!loading && fichas.length === 0 && (
-                    <p className="text-yellow-500">Nenhuma ficha encontrada 👀</p>
+                {/* 🔥 LOADING */}
+                {loading && (
+                    <div className="space-y-2 animate-pulse">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="h-20 bg-zinc-800 rounded-xl" />
+                        ))}
+                    </div>
                 )}
 
-                <div className="grid gap-4">
-                    {dias.map((dia, index) => (
-                        <div
-                            key={dia}
-                            className="flex flex-col sm:flex-row sm:items-center gap-3 bg-zinc-900 p-4 rounded-xl shadow"
+                {/* ❌ ERRO */}
+                {erro && !loading && (
+                    <div className="bg-red-900/40 border border-red-700 p-4 rounded-xl">
+                        <p className="text-red-400 mb-2">Erro: {erro}</p>
+                        <button
+                            onClick={fetchFichas}
+                            className="bg-red-600 px-3 py-1 rounded"
                         >
-                            {/* Dia */}
-                            <div className="w-full sm:w-28 font-semibold text-pink-400">
-                                {dia}
-                            </div>
+                            Tentar novamente 🔄
+                        </button>
+                    </div>
+                )}
 
-                            {/* Select */}
-                            <select
-                                className="w-full flex-1 p-2 bg-zinc-800 rounded text-sm sm:text-base"
-                                disabled={loading}
-                                value={selecoes[dia] ?? ""}
-                                onChange={(e) => selecionarFicha(dia, e.target.value)}
+                {/* 👀 LISTA */}
+                {!loading && !erro && (
+                    <>
+                        {fichas.length === 0 && (
+                            <p className="text-yellow-500 text-sm">
+                                Nenhuma ficha encontrada 👀
+                            </p>
+                        )}
+
+                        <DndContext
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext
+                                items={dias.map((d) => d.id)}
+                                strategy={verticalListSortingStrategy}
                             >
-                                <option value="">Selecionar ficha</option>
-                                {fichasFiltradas.map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                        {extrairTitulo(f.conteudo)}
-                                    </option>
-                                ))}
-                            </select>
+                                {dias.map((dia, index) => (
+                                    <SortableItem key={dia.id} id={dia.id}>
+                                        <div className="bg-zinc-900 p-4 rounded-xl mb-3">
 
-                            {/* Botões */}
-                            <div className="flex gap-2 justify-end sm:justify-center">
-                                <button
-                                    onClick={() => moverDia(index, -1)}
-                                    className="px-3 py-1 bg-zinc-700 rounded hover:bg-zinc-600 transition"
-                                >
-                                    ↑
-                                </button>
-                                <button
-                                    onClick={() => moverDia(index, 1)}
-                                    className="px-3 py-1 bg-zinc-700 rounded hover:bg-zinc-600 transition"
-                                >
-                                    ↓
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                            <div className="text-pink-400 font-semibold">
+                                                {getNomeDia(index)}
+                                            </div>
+
+                                            <select
+                                                value={dia.fichaId ?? ""}
+                                                onChange={(e) =>
+                                                    selecionarFicha(dia.id, e.target.value)
+                                                }
+                                                className="w-full mt-2 p-2 bg-zinc-800 rounded"
+                                            >
+                                                <option value="">Selecionar ficha</option>
+                                                {fichasFiltradas.map((f) => (
+                                                    <option key={f.id} value={f.id}>
+                                                        {extrairTitulo(f.conteudo)}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                        </div>
+                                    </SortableItem>
+                                ))}
+                            </SortableContext>
+                        </DndContext>
+                    </>
+                )}
 
                 <button
                     onClick={copiar}
-                    className="w-full bg-pink-600 hover:bg-pink-700 p-4 rounded-xl font-bold text-base sm:text-lg transition"
+                    className="w-full bg-pink-600 p-4 rounded-xl font-bold"
                 >
                     Copiar Grade 📋
                 </button>
+
             </div>
         </div>
     );
