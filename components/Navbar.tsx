@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Users, Settings, Moon, Menu, X } from "lucide-react";
+import { Home, Users, Settings, Moon, Menu, X, LayoutDashboard } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -17,6 +17,7 @@ const links = [
   { name: "Início", href: "/", icon: Home },
   { name: "Membros", href: "/membros", icon: Users },
   { name: "Grade", href: "/grade", icon: Settings },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
 export default function Navbar() {
