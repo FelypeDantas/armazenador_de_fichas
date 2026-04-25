@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Home, Users, Settings, Moon, Menu, X } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const links = [
   { name: "Início", href: "/", icon: Home },
@@ -16,6 +22,24 @@ const links = [
 export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [initial, setInitial] = useState("F");
+
+  useEffect(() => {
+    async function getUser() {
+      const { data } = await supabase.auth.getUser();
+
+      const name =
+        data?.user?.user_metadata?.name ||
+        data?.user?.email ||
+        "";
+
+      if (name) {
+        setInitial(name.charAt(0).toUpperCase());
+      }
+    }
+
+    getUser();
+  }, []);
 
   if (pathname === "/login" || pathname === "/cadastrar") {
     return null;
@@ -42,10 +66,11 @@ export default function Navbar() {
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl transition
-                  ${isActive
+                  ${
+                    isActive
                       ? "bg-rose-600/20 text-rose-400"
                       : "text-gray-300 hover:text-white hover:bg-white/5"
-                    }`}
+                  }`}
                 >
                   <Icon size={18} />
                   {link.name}
@@ -64,11 +89,11 @@ export default function Navbar() {
           </ThemeToggle>
 
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white font-bold">
-            F
+            {initial}
           </div>
         </div>
 
-        {/* 🍔 Botão Mobile */}
+        {/* Botão Mobile */}
         <button
           onClick={() => setOpen(!open)}
           className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition"
@@ -77,7 +102,7 @@ export default function Navbar() {
         </button>
       </nav>
 
-      {/* 📱 Menu Mobile */}
+      {/* Menu Mobile */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -100,10 +125,11 @@ export default function Navbar() {
                   >
                     <div
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition
-                      ${isActive
+                      ${
+                        isActive
                           ? "bg-rose-600/20 text-rose-400"
                           : "text-gray-300 hover:bg-white/5"
-                        }`}
+                      }`}
                     >
                       <Icon size={18} />
                       {link.name}
@@ -124,7 +150,7 @@ export default function Navbar() {
                 </ThemeToggle>
 
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white font-bold">
-                  F
+                  {initial}
                 </div>
               </div>
 
