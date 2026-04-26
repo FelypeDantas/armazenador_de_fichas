@@ -1,27 +1,26 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseServer";
-import bcrypt from "bcryptjs";
 
-const supabase = getSupabaseAdmin();
+export async function POST() {
+  try {
+    const { error } = await getSupabaseAdmin().auth.signOut();
 
-export async function POST(req: Request) {
-  const { nome, email, senha } = await req.json();
+    if (error) {
+      console.error("Erro no logout:", error.message);
 
-  if (!nome || !email || !senha) {
-    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Erro ao deslogar" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Erro inesperado:", err);
+
+    return NextResponse.json(
+      { success: false, error: "Erro inesperado" },
+      { status: 500 }
+    );
   }
-
-  const senhaHash = await bcrypt.hash(senha, 10);
-
-  const { error } = await supabase.from("admins").insert({
-    nome,
-    email,
-    senha: senhaHash,
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
 }
