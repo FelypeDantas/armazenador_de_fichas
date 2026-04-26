@@ -3,26 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Users, Settings, Moon, Menu, X, LayoutDashboard } from "lucide-react";
+import {
+  Home,
+  Users,
+  Settings,
+  Moon,
+  Menu,
+  X,
+  LayoutDashboard,
+  LogOut,
+  ClipboardList
+} from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabaseClient";
 
 const links = [
   { name: "Início", href: "/", icon: Home },
   { name: "Membros", href: "/membros", icon: Users },
   { name: "Grade", href: "/grade", icon: Settings },
+  { name: "Admin", href: "/admin", icon: ClipboardList },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+
   const [open, setOpen] = useState(false);
+  const [dropdown, setDropdown] = useState(false);
   const [initial, setInitial] = useState("F");
 
   useEffect(() => {
@@ -41,6 +49,14 @@ export default function Navbar() {
 
     getUser();
   }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+
+    window.location.href = "/login";
+  }
 
   if (pathname === "/login" || pathname === "/cadastrar") {
     return null;
@@ -67,11 +83,10 @@ export default function Navbar() {
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl transition
-                  ${
-                    isActive
+                  ${isActive
                       ? "bg-rose-600/20 text-rose-400"
                       : "text-gray-300 hover:text-white hover:bg-white/5"
-                  }`}
+                    }`}
                 >
                   <Icon size={18} />
                   {link.name}
@@ -82,15 +97,41 @@ export default function Navbar() {
         </div>
 
         {/* Ações Desktop */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-3 relative">
           <ThemeToggle>
             <div className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition">
               <Moon size={18} className="text-gray-300" />
             </div>
           </ThemeToggle>
 
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white font-bold">
-            {initial}
+          {/* Avatar */}
+          <div className="relative">
+            <button
+              onClick={() => setDropdown(!dropdown)}
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white font-bold"
+            >
+              {initial}
+            </button>
+
+            {/* Dropdown */}
+            <AnimatePresence>
+              {dropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 mt-2 w-40 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                >
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-white/5 transition"
+                  >
+                    <LogOut size={16} />
+                    Sair
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -126,11 +167,10 @@ export default function Navbar() {
                   >
                     <div
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition
-                      ${
-                        isActive
+                      ${isActive
                           ? "bg-rose-600/20 text-rose-400"
                           : "text-gray-300 hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       <Icon size={18} />
                       {link.name}
@@ -150,9 +190,13 @@ export default function Navbar() {
                   </div>
                 </ThemeToggle>
 
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white font-bold">
-                  {initial}
-                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/20 text-red-400"
+                >
+                  <LogOut size={16} />
+                  Sair
+                </button>
               </div>
 
             </div>
