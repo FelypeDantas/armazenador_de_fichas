@@ -5,10 +5,9 @@ import bcrypt from "bcryptjs";
 export async function PUT(req: Request) {
   try {
     const supabase = await createSupabaseServerClient();
-
     const body = await req.json();
 
-    // 🔐 pega usuário autenticado direto do Supabase
+    // 🔐 usuário autenticado
     const {
       data: { user },
       error: authError,
@@ -44,7 +43,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    // 🔥 atualiza tabela admins usando user_id
+    // 🔥 atualiza tabela admins
     const { error } = await supabase
       .from("admins")
       .update(updateData)
@@ -55,15 +54,36 @@ export async function PUT(req: Request) {
       throw error;
     }
 
-    // 🔥 sincroniza email no auth (se mudou)
-    if (body.email) {
-      const { error: updateAuthError } =
-        await supabase.auth.admin.updateUserById(userId, {
-          email: body.email,
-        });
+    // 🔥 monta payload do auth (sem sobrescrever com undefined)
+    const authUpdatePayload: {
+      email?: string;
+      user_metadata?: {
+        foto_url?: string;
+        name?: string;
+      };
+    } = {};
 
-      if (updateAuthError) {
-        console.error("AUTH UPDATE ERROR:", updateAuthError);
+    if (body.email) {
+      authUpdatePayload.email = body.email;
+    }
+
+    if (body.nome || body.foto_url) {
+      authUpdatePayload.user_metadata = {
+        ...(body.nome && { name: body.nome }),
+        ...(body.foto_url && { foto_url: body.foto_url }),
+      };
+    }
+
+    // 🔥 atualiza auth (email + metadata)
+    if (Object.keys(authUpdatePayload).length > 0) {
+      const { error: authErrorUpdate } =
+        await supabase.auth.admin.updateUserById(
+          userId,
+          authUpdatePayload
+        );
+
+      if (authErrorUpdate) {
+        console.error("AUTH UPDATE ERROR:", authErrorUpdate);
       }
     }
 
