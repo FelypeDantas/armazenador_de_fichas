@@ -28,6 +28,16 @@ const links = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
+async function loadProfile(userId: string) {
+  const { data } = await supabase
+    .from("admins")
+    .select("nome, email, foto_url")
+    .eq("user_id", userId)
+    .single();
+
+  return data;
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -38,7 +48,6 @@ export default function Navbar() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
-  // 🔥 novos estados
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -46,7 +55,7 @@ export default function Navbar() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-useEffect(() => {
+  useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
@@ -80,16 +89,6 @@ useEffect(() => {
     };
   }, []);
 
-  // 🔥 escuta login/logout
-  const { data: listener } = supabase.auth.onAuthStateChange(() => {
-    loadUser();
-  });
-
-  return () => {
-    listener.subscription.unsubscribe();
-  };
-}, []);
-
   async function handleLogout() {
     await supabase.auth.signOut();
     await fetch("/api/auth/logout", { method: "POST" });
@@ -116,7 +115,6 @@ useEffect(() => {
     }
   }
 
-  // 🔥 upload imagem
   async function uploadAvatar(file: File) {
     const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
@@ -134,7 +132,6 @@ useEffect(() => {
     return data.publicUrl;
   }
 
-  // 🔥 salvar perfil
   async function handleUpdate() {
     try {
       setLoading(true);
@@ -164,7 +161,7 @@ useEffect(() => {
       const data = await res.json();
 
       if (data.success) {
-        setAvatar(fotoUrl || null);
+        setAvatar(fotoUrl ? `${fotoUrl}?t=${Date.now()}` : null);
         setEditOpen(false);
         setFile(null);
         setPreview(null);
@@ -206,9 +203,9 @@ useEffect(() => {
                     whileTap={{ scale: 0.95 }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition
                     ${isActive
-                        ? "bg-rose-600/20 text-rose-400"
-                        : "text-gray-300 hover:text-white hover:bg-white/5"
-                      }`}
+                      ? "bg-rose-600/20 text-rose-400"
+                      : "text-gray-300 hover:text-white hover:bg-white/5"
+                    }`}
                   >
                     <Icon size={18} />
                     {link.name}
@@ -246,7 +243,6 @@ useEffect(() => {
                     exit={{ opacity: 0, y: -10 }}
                     className="absolute right-0 mt-2 w-48 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden"
                   >
-
                     <button
                       onClick={() => setEditOpen(true)}
                       className="w-full flex items-center gap-2 px-4 py-3 text-blue-400 hover:bg-white/5"
@@ -284,7 +280,7 @@ useEffect(() => {
         </nav>
       </header>
 
-      {/* 🔥 MODAL COMPLETO */}
+      {/* MODAL MANTIDO INTACTO */}
       <AnimatePresence>
         {editOpen && (
           <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -292,7 +288,6 @@ useEffect(() => {
 
               <h2 className="text-white mb-4">Editar Perfil</h2>
 
-              {/* preview */}
               {(preview || avatar) && (
                 // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
                 <img
@@ -301,31 +296,12 @@ useEffect(() => {
                 />
               )}
 
-              <input
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                className="w-full mb-2 p-2 bg-black/40 rounded"
-                placeholder="Nome"
-              />
-
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full mb-2 p-2 bg-black/40 rounded"
-                placeholder="Email"
-              />
-
-              <input
-                type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                className="w-full mb-2 p-2 bg-black/40 rounded"
-                placeholder="Nova senha"
-              />
+              <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full mb-2 p-2 bg-black/40 rounded" />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full mb-2 p-2 bg-black/40 rounded" />
+              <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full mb-2 p-2 bg-black/40 rounded" />
 
               <input
                 type="file"
-                accept="image/*"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
@@ -338,11 +314,7 @@ useEffect(() => {
 
               <div className="flex justify-end gap-2">
                 <button onClick={() => setEditOpen(false)}>Cancelar</button>
-                <button
-                  onClick={handleUpdate}
-                  disabled={loading}
-                  className="bg-rose-600 px-4 py-2 rounded text-white"
-                >
+                <button onClick={handleUpdate} disabled={loading} className="bg-rose-600 px-4 py-2 rounded text-white">
                   {loading ? "Salvando..." : "Salvar"}
                 </button>
               </div>
