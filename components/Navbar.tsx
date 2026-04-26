@@ -46,37 +46,39 @@ export default function Navbar() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-  async function loadUser() {
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user;
+useEffect(() => {
+    async function init() {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
 
-    if (!user) {
-      setAvatar(null);
-      return;
-    }
+      if (!user) {
+        setAvatar(null);
+        return;
+      }
 
-    const name =
-      user.user_metadata?.name ||
-      user.email ||
-      "";
+      // 🔥 fonte REAL de dados agora é o banco
+      const profile = await loadProfile(user.id);
 
-    const foto = user.user_metadata?.foto_url || null;
+      const name = profile?.nome || user.email || "";
+      const foto = profile?.foto_url || null;
 
-    if (name) {
       setInitial(name.charAt(0).toUpperCase());
-      setNome(name);
+      setNome(profile?.nome || "");
+      setEmail(profile?.email || user.email || "");
+
+      setAvatar(foto ? `${foto}?t=${Date.now()}` : null);
     }
 
-    if (user.email) {
-      setEmail(user.email);
-    }
+    init();
 
-    // 💡 evita cache da imagem
-    setAvatar(foto ? `${foto}?t=${Date.now()}` : null);
-  }
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      init();
+    });
 
-  loadUser();
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // 🔥 escuta login/logout
   const { data: listener } = supabase.auth.onAuthStateChange(() => {
