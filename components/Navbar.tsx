@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter} from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
@@ -50,12 +50,23 @@ export default function Navbar() {
     getUser();
   }, []);
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
+  const router = useRouter();
 
-    window.location.href = "/login";
+  async function handleLogout() {
+    try {
+      // 🔥 limpa sessão no client
+      await supabase.auth.signOut();
+
+      // 🔥 limpa sessão no server (cookies)
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      // 🚀 redireciona
+      router.push("/login");
+    } catch (err) {
+      console.error("Erro ao deslogar:", err);
+    }
   }
 
   if (pathname === "/login" || pathname === "/cadastrar") {
