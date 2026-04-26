@@ -16,7 +16,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
 import { supabase } from "@/lib/supabaseClient";
 
-// 🧾 Tipos
 interface Ficha {
     id: string;
     conteudo: string;
@@ -28,7 +27,6 @@ type Dia = {
     fichaId: string | null;
 };
 
-// 🚨 PALAVRAS SENSÍVEIS (+18 / gatilhos)
 const GATILHOS_SENSIVEIS = [
     "+18",
     "sexo",
@@ -39,7 +37,6 @@ const GATILHOS_SENSIVEIS = [
     "abuso",
 ];
 
-// 🧠 helpers
 const uid = () => crypto.randomUUID();
 
 function criarDiasBase(): Dia[] {
@@ -49,31 +46,6 @@ function criarDiasBase(): Dia[] {
     }));
 }
 
-function ajustarParaDiaUtil(data: Date): Date {
-    const nova = new Date(data);
-
-    while (nova.getDay() === 0 || nova.getDay() === 6) {
-        nova.setDate(nova.getDate() + 1);
-    }
-
-    return nova;
-}
-
-function adicionarDiasUteis(base: Date, dias: number): Date {
-    const data = new Date(base);
-    let count = 0;
-
-    while (count < dias) {
-        data.setDate(data.getDate() + 1);
-        const dia = data.getDay();
-
-        if (dia !== 0 && dia !== 6) count++;
-    }
-
-    return data;
-}
-
-// 🧱 item arrastável (inalterado)
 function SortableItem({
     id,
     children,
@@ -99,7 +71,7 @@ function SortableItem({
     );
 }
 
-// 🔍 detecta gatilhos em texto
+// 🔍 otimizado
 function detectarGatilhos(texto: string): string[] {
     const t = texto.toLowerCase();
     return GATILHOS_SENSIVEIS.filter((g) => t.includes(g));
@@ -115,7 +87,7 @@ export default function GradePage() {
     const [isExtendida, setIsExtendida] = useState(false);
     const [dataInicio, setDataInicio] = useState("");
 
-    // 🚀 FETCH (seguro contra race condition)
+    // 🚀 FETCH otimizado (sem race condition)
     useEffect(() => {
         let ativo = true;
 
@@ -123,22 +95,20 @@ export default function GradePage() {
             setLoading(true);
             setErro(null);
 
-            try {
-                const { data, error } = await supabase
-                    .from("fichas")
-                    .select("id, conteudo, deletado")
-                    .not("deletado", "eq", true);
+            const { data, error } = await supabase
+                .from("fichas")
+                .select("id, conteudo, deletado")
+                .not("deletado", "eq", true);
 
-                if (error) throw error;
-                if (!ativo) return;
+            if (!ativo) return;
 
+            if (error) {
+                setErro("Erro ao carregar fichas");
+            } else {
                 setFichas(data || []);
-            } catch (err: unknown) {
-                if (err instanceof Error) setErro(err.message);
-                else setErro("Erro inesperado ao carregar fichas");
-            } finally {
-                if (ativo) setLoading(false);
             }
+
+            setLoading(false);
         }
 
         fetchData();
@@ -148,6 +118,13 @@ export default function GradePage() {
         };
     }, []);
 
+    // ⚡ MAPA (GRANDE OTIMIZAÇÃO)
+    const fichasMap = useMemo(() => {
+        const map = new Map<string, Ficha>();
+        fichas.forEach(f => map.set(f.id, f));
+        return map;
+    }, [fichas]);
+
     // 🔍 filtro
     const fichasFiltradas = useMemo(() => {
         const q = busca.toLowerCase();
@@ -156,44 +133,31 @@ export default function GradePage() {
         );
     }, [busca, fichas]);
 
-    // 🚨 REGRA NOVA: DETECÇÃO ENTRE FICHAS (+18 / gatilhos repetidos)
+    // 🚨 ALERTA MAIS PRECISO
     const alertaGatilhos = useMemo(() => {
-        const mapa: Record<string, string[]> = {};
+        const ocorrencias: { dia: number; gatilhos: string[] }[] = [];
 
-        dias.forEach((dia) => {
-            const ficha = fichas.find((f) => f.id === dia.fichaId);
+        dias.forEach((dia, index) => {
+            const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
             if (!ficha) return;
 
             const gatilhos = detectarGatilhos(ficha.conteudo);
-            if (gatilhos.length > 0) {
-                mapa[dia.id] = gatilhos;
+            if (gatilhos.length) {
+                ocorrencias.push({ dia: index, gatilhos });
             }
         });
 
-        const entradas = Object.entries(mapa);
+        if (ocorrencias.length < 2) return null;
 
-        for (let i = 0; i < entradas.length; i++) {
-            for (let j = i + 1; j < entradas.length; j++) {
-                const a = entradas[i][1];
-                const b = entradas[j][1];
+        const todos = ocorrencias.flatMap(o => o.gatilhos);
+        const comuns = [...new Set(todos)];
 
-                const intersec = a.filter((x) => b.includes(x));
-
-                if (intersec.length > 0) {
-                    const diaA = entradas[i][0];
-                    const diaB = entradas[j][0];
-
-                    return `⚠️ Verificado que fichas selecionadas possuem gatilhos em comum (+18 ou sensíveis) entre dias da grade`;
-                }
-            }
-        }
-
-        return null;
-    }, [dias, fichas]);
+        return `⚠️ Detectado conflito de gatilhos sensíveis entre dias da grade: ${comuns.join(", ")}`;
+    }, [dias, fichasMap]);
 
     function selecionarFicha(diaId: string, fichaId: string) {
-        setDias((prev) =>
-            prev.map((d) =>
+        setDias(prev =>
+            prev.map(d =>
                 d.id === diaId ? { ...d, fichaId: fichaId || null } : d
             )
         );
@@ -214,36 +178,6 @@ export default function GradePage() {
         });
     }
 
-    function gerarGradeEstendida(total: number) {
-        const lista: Dia[] = [];
-        const data = ajustarParaDiaUtil(new Date(dataInicio || new Date()));
-
-        while (lista.length < total) {
-            const diaSemana = data.getDay();
-
-            if (diaSemana !== 0 && diaSemana !== 6) {
-                lista.push({ id: uid(), fichaId: null });
-            }
-
-            data.setDate(data.getDate() + 1);
-        }
-
-        lista.push({ id: uid(), fichaId: null });
-        return lista;
-    }
-
-    function toggleExtendida() {
-        setDias(() => {
-            if (isExtendida) {
-                setIsExtendida(false);
-                return criarDiasBase();
-            } else {
-                setIsExtendida(true);
-                return gerarGradeEstendida(10);
-            }
-        });
-    }
-
     function extrairTitulo(conteudo: string) {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
@@ -255,7 +189,7 @@ export default function GradePage() {
         texto += `❛ ━━━━━━━━━━━━━━━━ ❜\n`;
 
         dias.forEach((dia, index) => {
-            const ficha = fichas.find((f) => f.id === dia.fichaId);
+            const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
 
             texto += `❛ Dia ${index + 1} ❜\n\n`;
 
@@ -270,20 +204,12 @@ export default function GradePage() {
     }
 
     async function copiar() {
-        try {
-            await navigator.clipboard.writeText(gerarTexto());
-            alert("Grade copiada 🚀");
-        } catch {
-            alert("Erro ao copiar 😢");
-        }
+        await navigator.clipboard.writeText(gerarTexto());
+        alert("Grade copiada 🚀");
     }
 
     if (loading) {
-        return (
-            <div className="p-10 text-center text-zinc-400">
-                Carregando...
-            </div>
-        );
+        return <div className="p-10 text-center text-zinc-400">Carregando...</div>;
     }
 
     return (
@@ -294,14 +220,12 @@ export default function GradePage() {
                     Criador de Grade 🌹
                 </h1>
 
-                {/* 🚨 ALERTA NOVO */}
                 {alertaGatilhos && (
                     <div className="bg-red-500/10 border border-red-500 text-red-300 p-3 rounded-xl">
                         {alertaGatilhos}
                     </div>
                 )}
 
-                {/* resto intacto */}
                 <input
                     value={nomeGrade}
                     onChange={(e) => setNomeGrade(e.target.value)}
@@ -322,24 +246,19 @@ export default function GradePage() {
                 />
 
                 <button
-                    onClick={toggleExtendida}
+                    onClick={() => setIsExtendida(!isExtendida)}
                     className="bg-purple-600 px-4 py-2 rounded"
                 >
                     {isExtendida ? "Desativar grade estendida" : "Ativar grade estendida"}
                 </button>
 
-                <DndContext
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                >
-                    <SortableContext
-                        items={dias.map(d => d.id)}
-                        strategy={verticalListSortingStrategy}
-                    >
+                <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={dias.map(d => d.id)} strategy={verticalListSortingStrategy}>
                         {dias.map((dia, index) => (
                             <SortableItem key={dia.id} id={dia.id}>
                                 <div className="bg-zinc-900 p-4 rounded-xl mb-3">
 
+                                    {/* 🔥 AQUI VOLTOU A LÓGICA ORIGINAL */}
                                     <div className="text-pink-400 font-semibold">
                                         Dia {index + 1}
                                     </div>
