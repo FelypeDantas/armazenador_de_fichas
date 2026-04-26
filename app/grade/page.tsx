@@ -41,15 +41,30 @@ const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
 const uid = () => crypto.randomUUID();
 
-// 🧱 base padrão (5 dias + obra extra)
-function criarDiasBase(): Dia[] {
+/* ─────────────────────────────
+   🧱 GERAÇÃO DE DIAS
+──────────────────────────── */
+
+function criarGradeNormal(): Dia[] {
+    // 5 dias úteis + obra extra
     return Array.from({ length: 6 }).map(() => ({
         id: uid(),
         fichaId: null,
     }));
 }
 
-// 🧩 draggable item
+function criarGradeEstendida(): Dia[] {
+    // 2 semanas úteis (10 dias) + obra extra
+    return Array.from({ length: 11 }).map(() => ({
+        id: uid(),
+        fichaId: null,
+    }));
+}
+
+/* ─────────────────────────────
+   🧩 DRAGGABLE
+──────────────────────────── */
+
 function SortableItem({
     id,
     children,
@@ -75,21 +90,29 @@ function SortableItem({
     );
 }
 
-// 🔍 detector de gatilhos
+/* ─────────────────────────────
+   🔍 DETECTOR
+──────────────────────────── */
+
 function detectarGatilhos(texto: string): string[] {
     const t = texto.toLowerCase();
     return GATILHOS_SENSIVEIS.filter(g => t.includes(g));
 }
 
+/* ─────────────────────────────
+   🌹 COMPONENTE
+──────────────────────────── */
+
 export default function GradePage() {
     const [nomeGrade, setNomeGrade] = useState("Vale de Poesias");
-    const [dias, setDias] = useState<Dia[]>(criarDiasBase());
+    const [dias, setDias] = useState<Dia[]>(criarGradeNormal());
     const [fichas, setFichas] = useState<Ficha[]>([]);
     const [loading, setLoading] = useState(true);
     const [busca, setBusca] = useState("");
     const [isExtendida, setIsExtendida] = useState(false);
 
-    // 📦 fetch
+    /* ───────── FETCH ───────── */
+
     useEffect(() => {
         let ativo = true;
 
@@ -114,14 +137,16 @@ export default function GradePage() {
         };
     }, []);
 
-    // ⚡ mapa otimizado
+    /* ───────── MAPA ───────── */
+
     const fichasMap = useMemo(() => {
         const map = new Map<string, Ficha>();
         fichas.forEach(f => map.set(f.id, f));
         return map;
     }, [fichas]);
 
-    // 🔍 filtro
+    /* ───────── FILTRO ───────── */
+
     const fichasFiltradas = useMemo(() => {
         const q = busca.toLowerCase();
         return fichas.filter(f =>
@@ -129,7 +154,8 @@ export default function GradePage() {
         );
     }, [busca, fichas]);
 
-    // 🚨 alerta inteligente
+    /* ───────── ALERTA ───────── */
+
     const alertaGatilhos = useMemo(() => {
         const ocorrencias: { dia: string; gatilhos: string[] }[] = [];
 
@@ -140,20 +166,25 @@ export default function GradePage() {
             const gatilhos = detectarGatilhos(ficha.conteudo);
 
             if (gatilhos.length) {
-                ocorrencias.push({
-                    dia: index === 5 ? "Obra Extra" : DIAS_SEMANA[index],
-                    gatilhos,
-                });
+                const nome =
+                    index === dias.length - 1
+                        ? "Obra Extra"
+                        : DIAS_SEMANA[index % 5];
+
+                ocorrencias.push({ dia: nome, gatilhos });
             }
         });
 
         if (ocorrencias.length < 2) return null;
 
         return `⚠️ Conflito de conteúdo sensível entre: ` +
-            ocorrencias.map(o => `${o.dia} (${o.gatilhos.join(", ")})`).join(" | ");
+            ocorrencias
+                .map(o => `${o.dia} (${o.gatilhos.join(", ")})`)
+                .join(" | ");
     }, [dias, fichasMap]);
 
-    // 🎯 seleção
+    /* ───────── SELEÇÃO ───────── */
+
     function selecionarFicha(diaId: string, fichaId: string) {
         setDias(prev =>
             prev.map(d =>
@@ -162,7 +193,8 @@ export default function GradePage() {
         );
     }
 
-    // 🔄 drag
+    /* ───────── DRAG ───────── */
+
     function handleDragEnd(event: DragEndEvent) {
         const { active, over } = event;
 
@@ -178,12 +210,12 @@ export default function GradePage() {
         });
     }
 
-    // ✨ título
+    /* ───────── TEXTO ───────── */
+
     function extrairTitulo(conteudo: string) {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
-    // 🧾 texto final (SEM ALTERAR SUA LÓGICA)
     function gerarTexto() {
         let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
         texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
@@ -194,9 +226,9 @@ export default function GradePage() {
             const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
 
             const nomeDia =
-                index === 5
+                index === dias.length - 1
                     ? "Obra Extra"
-                    : DIAS_SEMANA[index];
+                    : DIAS_SEMANA[index % 5];
 
             texto += `❛ ${nomeDia} ❜\n\n`;
 
@@ -214,6 +246,18 @@ export default function GradePage() {
         await navigator.clipboard.writeText(gerarTexto());
         alert("Grade copiada 🚀");
     }
+
+    /* ───────── TOGGLE EXTENSÃO ───────── */
+
+    function toggleGrade() {
+        setIsExtendida(prev => {
+            const nova = !prev;
+            setDias(nova ? criarGradeEstendida() : criarGradeNormal());
+            return nova;
+        });
+    }
+
+    /* ───────── UI ───────── */
 
     if (loading) {
         return (
@@ -249,9 +293,8 @@ export default function GradePage() {
                     className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
                 />
 
-                {/* 🌹 GRADE ESTENDIDA PRESERVADA */}
                 <button
-                    onClick={() => setIsExtendida(!isExtendida)}
+                    onClick={toggleGrade}
                     className="bg-purple-600 px-4 py-2 rounded"
                 >
                     {isExtendida
@@ -260,15 +303,12 @@ export default function GradePage() {
                 </button>
 
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext
-                        items={dias.map(d => d.id)}
-                        strategy={verticalListSortingStrategy}
-                    >
+                    <SortableContext items={dias.map(d => d.id)} strategy={verticalListSortingStrategy}>
                         {dias.map((dia, index) => {
                             const nomeDia =
-                                index === 5
+                                index === dias.length - 1
                                     ? "Obra Extra"
-                                    : DIAS_SEMANA[index];
+                                    : DIAS_SEMANA[index % 5];
 
                             return (
                                 <SortableItem key={dia.id} id={dia.id}>
