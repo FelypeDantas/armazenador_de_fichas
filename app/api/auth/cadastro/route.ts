@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import bcrypt from "bcryptjs";
 
-const supabase = await createSupabaseServerClient();
-
-
 export async function POST(req: Request) {
+  const supabase = await createSupabaseServerClient(); // ✅ AGORA CERTO
+
   const { nome, email, senha } = await req.json();
 
   if (!nome || !email || !senha) {
