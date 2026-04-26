@@ -28,16 +28,6 @@ const links = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
-async function loadProfile(userId: string) {
-  const { data } = await supabase
-    .from("admins")
-    .select("nome, email, foto_url")
-    .eq("user_id", userId)
-    .single();
-
-  return data;
-}
-
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -48,6 +38,7 @@ export default function Navbar() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
+  // 🔥 novos estados
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -56,38 +47,46 @@ export default function Navbar() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    async function init() {
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
+  async function loadUser() {
+    const { data } = await supabase.auth.getUser();
+    const user = data?.user;
 
-      if (!user) {
-        setAvatar(null);
-        return;
-      }
-
-      // 🔥 fonte REAL de dados agora é o banco
-      const profile = await loadProfile(user.id);
-
-      const name = profile?.nome || user.email || "";
-      const foto = profile?.foto_url || null;
-
-      setInitial(name.charAt(0).toUpperCase());
-      setNome(profile?.nome || "");
-      setEmail(profile?.email || user.email || "");
-
-      setAvatar(foto ? `${foto}?t=${Date.now()}` : null);
+    if (!user) {
+      setAvatar(null);
+      return;
     }
 
-    init();
+    const name =
+      user.user_metadata?.name ||
+      user.email ||
+      "";
 
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      init();
-    });
+    const foto = user.user_metadata?.foto_url || null;
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
+    if (name) {
+      setInitial(name.charAt(0).toUpperCase());
+      setNome(name);
+    }
+
+    if (user.email) {
+      setEmail(user.email);
+    }
+
+    // 💡 evita cache da imagem
+    setAvatar(foto ? `${foto}?t=${Date.now()}` : null);
+  }
+
+  loadUser();
+
+  // 🔥 escuta login/logout
+  const { data: listener } = supabase.auth.onAuthStateChange(() => {
+    loadUser();
+  });
+
+  return () => {
+    listener.subscription.unsubscribe();
+  };
+}, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -115,6 +114,7 @@ export default function Navbar() {
     }
   }
 
+  // 🔥 upload imagem
   async function uploadAvatar(file: File) {
     const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
@@ -132,6 +132,7 @@ export default function Navbar() {
     return data.publicUrl;
   }
 
+  // 🔥 salvar perfil
   async function handleUpdate() {
     try {
       setLoading(true);
@@ -161,7 +162,7 @@ export default function Navbar() {
       const data = await res.json();
 
       if (data.success) {
-        setAvatar(fotoUrl ? `${fotoUrl}?t=${Date.now()}` : null);
+        setAvatar(fotoUrl || null);
         setEditOpen(false);
         setFile(null);
         setPreview(null);
@@ -203,9 +204,9 @@ export default function Navbar() {
                     whileTap={{ scale: 0.95 }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition
                     ${isActive
-                      ? "bg-rose-600/20 text-rose-400"
-                      : "text-gray-300 hover:text-white hover:bg-white/5"
-                    }`}
+                        ? "bg-rose-600/20 text-rose-400"
+                        : "text-gray-300 hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <Icon size={18} />
                     {link.name}
@@ -243,6 +244,7 @@ export default function Navbar() {
                     exit={{ opacity: 0, y: -10 }}
                     className="absolute right-0 mt-2 w-48 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden"
                   >
+
                     <button
                       onClick={() => setEditOpen(true)}
                       className="w-full flex items-center gap-2 px-4 py-3 text-blue-400 hover:bg-white/5"
@@ -280,7 +282,7 @@ export default function Navbar() {
         </nav>
       </header>
 
-      {/* MODAL MANTIDO INTACTO */}
+      {/* 🔥 MODAL COMPLETO */}
       <AnimatePresence>
         {editOpen && (
           <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -288,6 +290,7 @@ export default function Navbar() {
 
               <h2 className="text-white mb-4">Editar Perfil</h2>
 
+              {/* preview */}
               {(preview || avatar) && (
                 // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
                 <img
@@ -296,12 +299,31 @@ export default function Navbar() {
                 />
               )}
 
-              <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full mb-2 p-2 bg-black/40 rounded" />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full mb-2 p-2 bg-black/40 rounded" />
-              <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full mb-2 p-2 bg-black/40 rounded" />
+              <input
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="w-full mb-2 p-2 bg-black/40 rounded"
+                placeholder="Nome"
+              />
+
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full mb-2 p-2 bg-black/40 rounded"
+                placeholder="Email"
+              />
+
+              <input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full mb-2 p-2 bg-black/40 rounded"
+                placeholder="Nova senha"
+              />
 
               <input
                 type="file"
+                accept="image/*"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
@@ -314,7 +336,11 @@ export default function Navbar() {
 
               <div className="flex justify-end gap-2">
                 <button onClick={() => setEditOpen(false)}>Cancelar</button>
-                <button onClick={handleUpdate} disabled={loading} className="bg-rose-600 px-4 py-2 rounded text-white">
+                <button
+                  onClick={handleUpdate}
+                  disabled={loading}
+                  className="bg-rose-600 px-4 py-2 rounded text-white"
+                >
                   {loading ? "Salvando..." : "Salvar"}
                 </button>
               </div>
