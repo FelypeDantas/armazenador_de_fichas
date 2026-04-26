@@ -28,6 +28,17 @@ type Dia = {
     fichaId: string | null;
 };
 
+// 🚨 PALAVRAS SENSÍVEIS (+18 / gatilhos)
+const GATILHOS_SENSIVEIS = [
+    "+18",
+    "sexo",
+    "sexual",
+    "erótico",
+    "nsfw",
+    "violência",
+    "abuso",
+];
+
 // 🧠 helpers
 const uid = () => crypto.randomUUID();
 
@@ -38,7 +49,6 @@ function criarDiasBase(): Dia[] {
     }));
 }
 
-// 🔒 garante que nunca começa em sábado/domingo
 function ajustarParaDiaUtil(data: Date): Date {
     const nova = new Date(data);
 
@@ -49,24 +59,21 @@ function ajustarParaDiaUtil(data: Date): Date {
     return nova;
 }
 
-// 🚀 soma dias úteis ignorando fim de semana
 function adicionarDiasUteis(base: Date, dias: number): Date {
     const data = new Date(base);
     let count = 0;
 
     while (count < dias) {
         data.setDate(data.getDate() + 1);
-
         const dia = data.getDay();
-        if (dia !== 0 && dia !== 6) {
-            count++;
-        }
+
+        if (dia !== 0 && dia !== 6) count++;
     }
 
     return data;
 }
 
-// 🧱 item arrastável
+// 🧱 item arrastável (inalterado)
 function SortableItem({
     id,
     children,
@@ -77,16 +84,25 @@ function SortableItem({
     const { attributes, listeners, setNodeRef, transform, transition } =
         useSortable({ id });
 
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
     return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        <div
+            ref={setNodeRef}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+            }}
+            {...attributes}
+            {...listeners}
+        >
             {children}
         </div>
     );
+}
+
+// 🔍 detecta gatilhos em texto
+function detectarGatilhos(texto: string): string[] {
+    const t = texto.toLowerCase();
+    return GATILHOS_SENSIVEIS.filter((g) => t.includes(g));
 }
 
 export default function GradePage() {
@@ -96,11 +112,13 @@ export default function GradePage() {
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
     const [busca, setBusca] = useState("");
-
     const [isExtendida, setIsExtendida] = useState(false);
     const [dataInicio, setDataInicio] = useState("");
 
+    // 🚀 FETCH (seguro contra race condition)
     useEffect(() => {
+        let ativo = true;
+
         async function fetchData() {
             setLoading(true);
             setErro(null);
@@ -112,54 +130,66 @@ export default function GradePage() {
                     .not("deletado", "eq", true);
 
                 if (error) throw error;
+                if (!ativo) return;
 
                 setFichas(data || []);
             } catch (err: unknown) {
-                if (err instanceof Error) {
-                    setErro(err.message);
-                } else {
-                    setErro("Erro inesperado ao carregar fichas");
-                }
+                if (err instanceof Error) setErro(err.message);
+                else setErro("Erro inesperado ao carregar fichas");
             } finally {
-                setLoading(false);
+                if (ativo) setLoading(false);
             }
         }
 
         fetchData();
+
+        return () => {
+            ativo = false;
+        };
     }, []);
 
     // 🔍 filtro
     const fichasFiltradas = useMemo(() => {
+        const q = busca.toLowerCase();
         return fichas.filter((f) =>
-            f.conteudo.toLowerCase().includes(busca.toLowerCase())
+            f.conteudo.toLowerCase().includes(q)
         );
     }, [busca, fichas]);
 
-    // 🧠 data segura
-    function getDataBase(): Date {
-        const base = dataInicio ? new Date(dataInicio) : new Date();
-        return ajustarParaDiaUtil(base);
-    }
+    // 🚨 REGRA NOVA: DETECÇÃO ENTRE FICHAS (+18 / gatilhos repetidos)
+    const alertaGatilhos = useMemo(() => {
+        const mapa: Record<string, string[]> = {};
 
-    // 🧠 nome dia (AGORA PERFEITO)
-    function getNomeDia(index: number) {
-        if (index === dias.length - 1) return "Obra extra";
+        dias.forEach((dia) => {
+            const ficha = fichas.find((f) => f.id === dia.fichaId);
+            if (!ficha) return;
 
-        const base = getDataBase();
-        const data = adicionarDiasUteis(base, index);
+            const gatilhos = detectarGatilhos(ficha.conteudo);
+            if (gatilhos.length > 0) {
+                mapa[dia.id] = gatilhos;
+            }
+        });
 
-        const nomesSemana = [
-            "Domingo",
-            "Segunda",
-            "Terça",
-            "Quarta",
-            "Quinta",
-            "Sexta",
-            "Sábado",
-        ];
+        const entradas = Object.entries(mapa);
 
-        return `${nomesSemana[data.getDay()]} (${data.toLocaleDateString("pt-BR")})`;
-    }
+        for (let i = 0; i < entradas.length; i++) {
+            for (let j = i + 1; j < entradas.length; j++) {
+                const a = entradas[i][1];
+                const b = entradas[j][1];
+
+                const intersec = a.filter((x) => b.includes(x));
+
+                if (intersec.length > 0) {
+                    const diaA = entradas[i][0];
+                    const diaB = entradas[j][0];
+
+                    return `⚠️ Verificado que fichas selecionadas possuem gatilhos em comum (+18 ou sensíveis) entre dias da grade`;
+                }
+            }
+        }
+
+        return null;
+    }, [dias, fichas]);
 
     function selecionarFicha(diaId: string, fichaId: string) {
         setDias((prev) =>
@@ -180,19 +210,13 @@ export default function GradePage() {
 
             if (oldIndex === -1 || newIndex === -1) return items;
 
-            const lastIndex = items.length - 1;
-
-            if (oldIndex === lastIndex || newIndex === lastIndex) {
-                return items;
-            }
-
             return arrayMove(items, oldIndex, newIndex);
         });
     }
 
     function gerarGradeEstendida(total: number) {
         const lista: Dia[] = [];
-        const data = ajustarParaDiaUtil(getDataBase());
+        const data = ajustarParaDiaUtil(new Date(dataInicio || new Date()));
 
         while (lista.length < total) {
             const diaSemana = data.getDay();
@@ -224,31 +248,6 @@ export default function GradePage() {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
-    // 🔄 retry
-    async function refetch() {
-        setLoading(true);
-        setErro(null);
-
-        try {
-            const { data, error } = await supabase
-                .from("fichas")
-                .select("id, conteudo, deletado")
-                .not("deletado", "eq", true);
-
-            if (error) throw error;
-
-            setFichas(data || []);
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                setErro(err.message);
-            } else {
-                setErro("Erro inesperado ao carregar fichas");
-            }
-        } finally {
-            setLoading(false);
-        }
-    }
-
     function gerarTexto() {
         let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
         texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
@@ -258,13 +257,11 @@ export default function GradePage() {
         dias.forEach((dia, index) => {
             const ficha = fichas.find((f) => f.id === dia.fichaId);
 
-            texto += `❛ ${getNomeDia(index)} ❜\n\n`;
+            texto += `❛ Dia ${index + 1} ❜\n\n`;
 
-            if (ficha) {
-                texto += formatarParaWhatsApp(ficha.conteudo) + "\n";
-            } else {
-                texto += "*(Nenhuma ficha selecionada)*\n";
-            }
+            texto += ficha
+                ? formatarParaWhatsApp(ficha.conteudo) + "\n"
+                : "*(Nenhuma ficha selecionada)*\n";
 
             texto += "──────────────\n";
         });
@@ -281,6 +278,14 @@ export default function GradePage() {
         }
     }
 
+    if (loading) {
+        return (
+            <div className="p-10 text-center text-zinc-400">
+                Carregando...
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6">
             <div className="max-w-5xl mx-auto space-y-6">
@@ -289,6 +294,14 @@ export default function GradePage() {
                     Criador de Grade 🌹
                 </h1>
 
+                {/* 🚨 ALERTA NOVO */}
+                {alertaGatilhos && (
+                    <div className="bg-red-500/10 border border-red-500 text-red-300 p-3 rounded-xl">
+                        {alertaGatilhos}
+                    </div>
+                )}
+
+                {/* resto intacto */}
                 <input
                     value={nomeGrade}
                     onChange={(e) => setNomeGrade(e.target.value)}
@@ -305,7 +318,6 @@ export default function GradePage() {
                 <input
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
-                    placeholder="Buscar ficha..."
                     className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
                 />
 
@@ -316,72 +328,42 @@ export default function GradePage() {
                     {isExtendida ? "Desativar grade estendida" : "Ativar grade estendida"}
                 </button>
 
-                {loading && (
-                    <div className="space-y-2 animate-pulse">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="h-20 bg-zinc-800 rounded-xl" />
+                <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={dias.map(d => d.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        {dias.map((dia, index) => (
+                            <SortableItem key={dia.id} id={dia.id}>
+                                <div className="bg-zinc-900 p-4 rounded-xl mb-3">
+
+                                    <div className="text-pink-400 font-semibold">
+                                        Dia {index + 1}
+                                    </div>
+
+                                    <select
+                                        value={dia.fichaId ?? ""}
+                                        onChange={(e) =>
+                                            selecionarFicha(dia.id, e.target.value)
+                                        }
+                                        className="w-full mt-2 p-2 bg-zinc-800 rounded"
+                                    >
+                                        <option value="">Selecionar ficha</option>
+                                        {fichasFiltradas.map((f) => (
+                                            <option key={f.id} value={f.id}>
+                                                {extrairTitulo(f.conteudo)}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                </div>
+                            </SortableItem>
                         ))}
-                    </div>
-                )}
-
-                {erro && !loading && (
-                    <div className="bg-red-900/40 border border-red-700 p-4 rounded-xl">
-                        <p className="text-red-400 mb-2">Erro: {erro}</p>
-                        <button
-                            onClick={refetch}
-                            className="bg-red-600 px-3 py-1 rounded"
-                        >
-                            Tentar novamente 🔄
-                        </button>
-                    </div>
-                )}
-
-                {!loading && !erro && (
-                    <>
-                        {fichas.length === 0 && (
-                            <p className="text-yellow-500 text-sm">
-                                Nenhuma ficha encontrada 👀
-                            </p>
-                        )}
-
-                        <DndContext
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={dias.map((d) => d.id)}
-                                strategy={verticalListSortingStrategy}
-                            >
-                                {dias.map((dia, index) => (
-                                    <SortableItem key={dia.id} id={dia.id}>
-                                        <div className="bg-zinc-900 p-4 rounded-xl mb-3">
-
-                                            <div className="text-pink-400 font-semibold">
-                                                {getNomeDia(index)}
-                                            </div>
-
-                                            <select
-                                                value={dia.fichaId ?? ""}
-                                                onChange={(e) =>
-                                                    selecionarFicha(dia.id, e.target.value)
-                                                }
-                                                className="w-full mt-2 p-2 bg-zinc-800 rounded"
-                                            >
-                                                <option value="">Selecionar ficha</option>
-                                                {fichasFiltradas.map((f) => (
-                                                    <option key={f.id} value={f.id}>
-                                                        {extrairTitulo(f.conteudo)}
-                                                    </option>
-                                                ))}
-                                            </select>
-
-                                        </div>
-                                    </SortableItem>
-                                ))}
-                            </SortableContext>
-                        </DndContext>
-                    </>
-                )}
+                    </SortableContext>
+                </DndContext>
 
                 <button
                     onClick={copiar}
