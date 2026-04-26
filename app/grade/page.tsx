@@ -37,8 +37,11 @@ const GATILHOS_SENSIVEIS = [
     "abuso",
 ];
 
+const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
+
 const uid = () => crypto.randomUUID();
 
+// 🧱 base da grade (5 dias + obra extra)
 function criarDiasBase(): Dia[] {
     return Array.from({ length: 6 }).map(() => ({
         id: uid(),
@@ -46,6 +49,7 @@ function criarDiasBase(): Dia[] {
     }));
 }
 
+// 🧩 item arrastável
 function SortableItem({
     id,
     children,
@@ -71,7 +75,7 @@ function SortableItem({
     );
 }
 
-// 🔍 otimizado
+// 🔍 detector de gatilhos
 function detectarGatilhos(texto: string): string[] {
     const t = texto.toLowerCase();
     return GATILHOS_SENSIVEIS.filter((g) => t.includes(g));
@@ -82,18 +86,15 @@ export default function GradePage() {
     const [dias, setDias] = useState<Dia[]>(criarDiasBase());
     const [fichas, setFichas] = useState<Ficha[]>([]);
     const [loading, setLoading] = useState(true);
-    const [erro, setErro] = useState<string | null>(null);
     const [busca, setBusca] = useState("");
     const [isExtendida, setIsExtendida] = useState(false);
-    const [dataInicio, setDataInicio] = useState("");
 
-    // 🚀 FETCH otimizado (sem race condition)
+    // 📦 fetch
     useEffect(() => {
         let ativo = true;
 
         async function fetchData() {
             setLoading(true);
-            setErro(null);
 
             const { data, error } = await supabase
                 .from("fichas")
@@ -102,12 +103,7 @@ export default function GradePage() {
 
             if (!ativo) return;
 
-            if (error) {
-                setErro("Erro ao carregar fichas");
-            } else {
-                setFichas(data || []);
-            }
-
+            if (!error) setFichas(data || []);
             setLoading(false);
         }
 
@@ -118,7 +114,7 @@ export default function GradePage() {
         };
     }, []);
 
-    // ⚡ MAPA (GRANDE OTIMIZAÇÃO)
+    // ⚡ map otimizado
     const fichasMap = useMemo(() => {
         const map = new Map<string, Ficha>();
         fichas.forEach(f => map.set(f.id, f));
@@ -128,33 +124,37 @@ export default function GradePage() {
     // 🔍 filtro
     const fichasFiltradas = useMemo(() => {
         const q = busca.toLowerCase();
-        return fichas.filter((f) =>
-            f.conteudo.toLowerCase().includes(q)
-        );
+        return fichas.filter(f => f.conteudo.toLowerCase().includes(q));
     }, [busca, fichas]);
 
-    // 🚨 ALERTA MAIS PRECISO
+    // 🚨 alerta inteligente
     const alertaGatilhos = useMemo(() => {
-        const ocorrencias: { dia: number; gatilhos: string[] }[] = [];
+        const ocorrencias: { dia: string; gatilhos: string[] }[] = [];
 
         dias.forEach((dia, index) => {
             const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
             if (!ficha) return;
 
             const gatilhos = detectarGatilhos(ficha.conteudo);
+
             if (gatilhos.length) {
-                ocorrencias.push({ dia: index, gatilhos });
+                ocorrencias.push({
+                    dia: index === 5 ? "Obra extra" : DIAS_SEMANA[index],
+                    gatilhos,
+                });
             }
         });
 
         if (ocorrencias.length < 2) return null;
 
-        const todos = ocorrencias.flatMap(o => o.gatilhos);
-        const comuns = [...new Set(todos)];
+        const conflitos = ocorrencias
+            .map(o => `${o.dia} (${o.gatilhos.join(", ")})`)
+            .join(" | ");
 
-        return `⚠️ Detectado conflito de gatilhos sensíveis entre dias da grade: ${comuns.join(", ")}`;
+        return `⚠️ Conflito de conteúdo sensível detectado entre: ${conflitos}`;
     }, [dias, fichasMap]);
 
+    // 🎯 selecionar ficha
     function selecionarFicha(diaId: string, fichaId: string) {
         setDias(prev =>
             prev.map(d =>
@@ -163,12 +163,13 @@ export default function GradePage() {
         );
     }
 
+    // 🔄 drag
     function handleDragEnd(event: DragEndEvent) {
         const { active, over } = event;
 
         if (!over || active.id === over.id) return;
 
-        setDias((items) => {
+        setDias(items => {
             const oldIndex = items.findIndex(i => i.id === active.id);
             const newIndex = items.findIndex(i => i.id === over.id);
 
@@ -178,10 +179,12 @@ export default function GradePage() {
         });
     }
 
+    // ✨ título ficha
     function extrairTitulo(conteudo: string) {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
+    // 🧾 gerar texto final
     function gerarTexto() {
         let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
         texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
@@ -191,7 +194,10 @@ export default function GradePage() {
         dias.forEach((dia, index) => {
             const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
 
-            texto += `❛ Dia ${index + 1} ❜\n\n`;
+            const nomeDia =
+                index === 5 ? "Obra Extra" : DIAS_SEMANA[index];
+
+            texto += `❛ ${nomeDia} ❜\n\n`;
 
             texto += ficha
                 ? formatarParaWhatsApp(ficha.conteudo) + "\n"
@@ -209,7 +215,11 @@ export default function GradePage() {
     }
 
     if (loading) {
-        return <div className="p-10 text-center text-zinc-400">Carregando...</div>;
+        return (
+            <div className="p-10 text-center text-zinc-400">
+                Carregando...
+            </div>
+        );
     }
 
     return (
@@ -233,13 +243,6 @@ export default function GradePage() {
                 />
 
                 <input
-                    type="date"
-                    value={dataInicio}
-                    onChange={(e) => setDataInicio(e.target.value)}
-                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
-                />
-
-                <input
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
                     className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
@@ -254,33 +257,37 @@ export default function GradePage() {
 
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={dias.map(d => d.id)} strategy={verticalListSortingStrategy}>
-                        {dias.map((dia, index) => (
-                            <SortableItem key={dia.id} id={dia.id}>
-                                <div className="bg-zinc-900 p-4 rounded-xl mb-3">
+                        {dias.map((dia, index) => {
+                            const nomeDia =
+                                index === 5 ? "Obra Extra" : DIAS_SEMANA[index];
 
-                                    {/* 🔥 AQUI VOLTOU A LÓGICA ORIGINAL */}
-                                    <div className="text-pink-400 font-semibold">
-                                        Dia {index + 1}
+                            return (
+                                <SortableItem key={dia.id} id={dia.id}>
+                                    <div className="bg-zinc-900 p-4 rounded-xl mb-3">
+
+                                        <div className="text-pink-400 font-semibold">
+                                            {nomeDia}
+                                        </div>
+
+                                        <select
+                                            value={dia.fichaId ?? ""}
+                                            onChange={(e) =>
+                                                selecionarFicha(dia.id, e.target.value)
+                                            }
+                                            className="w-full mt-2 p-2 bg-zinc-800 rounded"
+                                        >
+                                            <option value="">Selecionar ficha</option>
+                                            {fichasFiltradas.map(f => (
+                                                <option key={f.id} value={f.id}>
+                                                    {extrairTitulo(f.conteudo)}
+                                                </option>
+                                            ))}
+                                        </select>
+
                                     </div>
-
-                                    <select
-                                        value={dia.fichaId ?? ""}
-                                        onChange={(e) =>
-                                            selecionarFicha(dia.id, e.target.value)
-                                        }
-                                        className="w-full mt-2 p-2 bg-zinc-800 rounded"
-                                    >
-                                        <option value="">Selecionar ficha</option>
-                                        {fichasFiltradas.map((f) => (
-                                            <option key={f.id} value={f.id}>
-                                                {extrairTitulo(f.conteudo)}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                </div>
-                            </SortableItem>
-                        ))}
+                                </SortableItem>
+                            );
+                        })}
                     </SortableContext>
                 </DndContext>
 
