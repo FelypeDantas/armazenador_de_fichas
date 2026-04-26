@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export async function POST() {
   try {
-    const { error } = await getSupabaseAdmin().auth.signOut();
+    const supabase = await createSupabaseServerClient();
+
+    const { error } = await supabase.auth.signOut();
 
     if (error) {
       console.error("Erro no logout:", error.message);
