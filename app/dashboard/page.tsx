@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 
 type Ficha = {
   id: string;
@@ -9,17 +9,9 @@ type Ficha = {
   created_at: string;
 };
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 // 🧠 UTILS
 function contarPalavras(texto: string): number {
-  return texto
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+  return texto.trim().split(/\s+/).filter(Boolean).length;
 }
 
 function formatarDia(data: string) {
@@ -31,32 +23,33 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 🚀 FETCH DIRETO NO EFFECT (sem erro de hooks)
   useEffect(() => {
-    fetchFichas();
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from("fichas")
+        .select("id, conteudo, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        setError("Erro ao carregar fichas");
+      } else {
+        setFichas(data || []);
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
   }, []);
-
-  async function fetchFichas() {
-    setLoading(true);
-    setError(null);
-
-    const { data, error } = await supabase
-      .from("fichas")
-      .select("id, conteudo, created_at")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      setError("Erro ao carregar fichas");
-    } else {
-      setFichas(data || []);
-    }
-
-    setLoading(false);
-  }
 
   // 📊 MÉTRICAS
   const metrics = useMemo(() => {
-    const hoje = new Date().toDateString();
+    const hoje = new Date().toLocaleDateString("pt-BR");
 
     let totalPalavras = 0;
     let fichasHoje = 0;
@@ -64,7 +57,7 @@ export default function Dashboard() {
     for (const f of fichas) {
       totalPalavras += contarPalavras(f.conteudo);
 
-      if (new Date(f.created_at).toDateString() === hoje) {
+      if (formatarDia(f.created_at) === hoje) {
         fichasHoje++;
       }
     }
@@ -76,7 +69,7 @@ export default function Dashboard() {
     };
   }, [fichas]);
 
-  // 📈 GRÁFICO (últimos 7 dias)
+  // 📈 GRÁFICO
   const fichasPorDia = useMemo(() => {
     const mapa: Record<string, number> = {};
 
@@ -88,6 +81,7 @@ export default function Dashboard() {
     return Object.entries(mapa).slice(-7);
   }, [fichas]);
 
+  // 🌀 LOADING
   if (loading) {
     return (
       <div className="p-10 text-center text-gray-400">
@@ -96,6 +90,7 @@ export default function Dashboard() {
     );
   }
 
+  // ❌ ERRO
   if (error) {
     return (
       <div className="p-10 text-center text-red-400">
@@ -104,6 +99,7 @@ export default function Dashboard() {
     );
   }
 
+  // 🎯 UI
   return (
     <div className="p-6 space-y-6">
       {/* 🔢 MÉTRICAS */}
