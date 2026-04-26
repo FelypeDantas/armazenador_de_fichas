@@ -38,7 +38,7 @@ function criarDiasBase(): Dia[] {
     }));
 }
 
-const nomesSemana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const nomesSemana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
 // 🧱 item arrastável
 function SortableItem({
