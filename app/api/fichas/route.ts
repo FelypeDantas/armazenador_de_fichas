@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 type Body = {
   conteudo?: unknown;
@@ -8,6 +8,7 @@ type Body = {
 // 📥 GET → listar fichas
 export async function GET() {
   try {
+    const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("fichas")
       .select("*")
@@ -76,6 +77,7 @@ export async function POST(req: Request) {
       );
     }
 
+    const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("fichas")
       .insert({
