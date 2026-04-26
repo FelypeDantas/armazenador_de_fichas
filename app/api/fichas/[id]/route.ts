@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 type Body = {
   conteudo?: unknown;
@@ -16,7 +16,7 @@ export async function PUT(
       return Response.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const supabase = getSupabaseAdmin(); // 👑
+    const supabase =await createSupabaseServerClient(); // 👑
 
     let body: Body;
 
@@ -92,7 +92,7 @@ export async function DELETE(
       );
     }
 
-    const supabase = getSupabaseAdmin();
+    const supabase =await createSupabaseServerClient();
 
     const { data, error } = await supabase
       .from("fichas")
