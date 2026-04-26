@@ -29,13 +29,19 @@ const links = [
 ];
 
 async function getProfile(userId: string) {
-  const { data } = await supabase
-    .from("admins")
-    .select("nome, email, foto_url")
-    .eq("user_id", userId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("admins")
+      .select("nome, email, foto_url")
+      .eq("user_id", userId)
+      .single();
 
-  return data;
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error("getProfile error:", err);
+    return null;
+  }
 }
 
 export default function Navbar() {
@@ -44,16 +50,15 @@ export default function Navbar() {
 
   const [open, setOpen] = useState(false);
   const [dropdown, setDropdown] = useState(false);
+
   const [initial, setInitial] = useState("F");
   const [avatar, setAvatar] = useState<string | null>(null);
+
   const [editOpen, setEditOpen] = useState(false);
 
-  // 🔥 novos estados
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -61,18 +66,14 @@ export default function Navbar() {
 
     const load = async (userId: string) => {
       const profile = await getProfile(userId);
+      if (!mounted || !profile) return;
 
-      if (!mounted) return;
-
-      const name = profile?.nome || "";
-      const foto = profile?.foto_url || null;
+      const name = profile.nome || "";
 
       setInitial(name ? name.charAt(0).toUpperCase() : "F");
       setNome(name);
-      setEmail(profile?.email || "");
-
-      // 🔥 chave final contra "sumir imagem"
-      setAvatar(foto || null);
+      setEmail(profile.email || "");
+      setAvatar(profile.foto_url || null);
     };
 
     const init = async () => {
@@ -89,7 +90,7 @@ export default function Navbar() {
 
     init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
+    const { data } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const user = session?.user;
 
@@ -104,14 +105,19 @@ export default function Navbar() {
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
+      data.subscription.unsubscribe();
     };
   }, []);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    try {
+      await supabase.auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("logout error:", err);
+    } finally {
+      router.push("/login");
+    }
   }
 
   async function handleDeleteUser() {
@@ -134,34 +140,9 @@ export default function Navbar() {
     }
   }
 
-  // 🔥 upload imagem
-  async function uploadAvatar(file: File) {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(fileName, file, { upsert: true });
-
-    if (error) throw error;
-
-    const { data } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(fileName);
-
-    return data.publicUrl;
-  }
-
-  // 🔥 salvar perfil
   async function handleUpdate() {
     try {
       setLoading(true);
-
-      let fotoUrl = avatar;
-
-      if (file) {
-        fotoUrl = await uploadAvatar(file);
-      }
 
       const token = localStorage.getItem("token");
 
@@ -175,17 +156,14 @@ export default function Navbar() {
           nome,
           email,
           senha,
-          foto_url: fotoUrl,
+          foto_url: avatar, // 👈 mantém foto existente, mas sem upload
         }),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        setAvatar(fotoUrl || null);
         setEditOpen(false);
-        setFile(null);
-        setPreview(null);
         setSenha("");
         alert("Perfil atualizado!");
       } else {
@@ -199,9 +177,7 @@ export default function Navbar() {
     }
   }
 
-  if (pathname === "/login" || pathname === "/cadastrar") {
-    return null;
-  }
+  if (pathname === "/login" || pathname === "/cadastrar") return null;
 
   return (
     <>
@@ -249,7 +225,7 @@ export default function Navbar() {
                 className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white font-bold"
               >
                 {avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatar} className="w-full h-full object-cover" />
                 ) : (
                   initial
@@ -264,7 +240,6 @@ export default function Navbar() {
                     exit={{ opacity: 0, y: -10 }}
                     className="absolute right-0 mt-2 w-48 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden"
                   >
-
                     <button
                       onClick={() => setEditOpen(true)}
                       className="w-full flex items-center gap-2 px-4 py-3 text-blue-400 hover:bg-white/5"
@@ -302,7 +277,7 @@ export default function Navbar() {
         </nav>
       </header>
 
-      {/* 🔥 MODAL COMPLETO */}
+      {/* MODAL EDIT */}
       <AnimatePresence>
         {editOpen && (
           <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -310,11 +285,10 @@ export default function Navbar() {
 
               <h2 className="text-white mb-4">Editar Perfil</h2>
 
-              {/* preview */}
-              {(preview || avatar) && (
-                // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+              {(avatar) && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={preview || avatar!}
+                  src={avatar}
                   className="w-20 h-20 rounded-full object-cover mb-4"
                 />
               )}
@@ -337,21 +311,8 @@ export default function Navbar() {
                 type="password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
-                className="w-full mb-2 p-2 bg-black/40 rounded"
+                className="w-full mb-4 p-2 bg-black/40 rounded"
                 placeholder="Nova senha"
-              />
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    setFile(f);
-                    setPreview(URL.createObjectURL(f));
-                  }
-                }}
-                className="mb-4"
               />
 
               <div className="flex justify-end gap-2">
