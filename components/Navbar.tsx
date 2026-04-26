@@ -28,6 +28,16 @@ const links = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
+async function getProfile(userId: string) {
+  const { data } = await supabase
+    .from("admins")
+    .select("nome, email, foto_url")
+    .eq("user_id", userId)
+    .single();
+
+  return data;
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -47,46 +57,56 @@ export default function Navbar() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-  async function loadUser() {
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user;
+    let mounted = true;
 
-    if (!user) {
-      setAvatar(null);
-      return;
-    }
+    const load = async (userId: string) => {
+      const profile = await getProfile(userId);
 
-    const name =
-      user.user_metadata?.name ||
-      user.email ||
-      "";
+      if (!mounted) return;
 
-    const foto = user.user_metadata?.foto_url || null;
+      const name = profile?.nome || "";
+      const foto = profile?.foto_url || null;
 
-    if (name) {
-      setInitial(name.charAt(0).toUpperCase());
+      setInitial(name ? name.charAt(0).toUpperCase() : "F");
       setNome(name);
-    }
+      setEmail(profile?.email || "");
 
-    if (user.email) {
-      setEmail(user.email);
-    }
+      // 🔥 chave final contra "sumir imagem"
+      setAvatar(foto || null);
+    };
 
-    // 💡 evita cache da imagem
-    setAvatar(foto ? `${foto}?t=${Date.now()}` : null);
-  }
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
 
-  loadUser();
+      if (!user) {
+        setAvatar(null);
+        return;
+      }
 
-  // 🔥 escuta login/logout
-  const { data: listener } = supabase.auth.onAuthStateChange(() => {
-    loadUser();
-  });
+      await load(user.id);
+    };
 
-  return () => {
-    listener.subscription.unsubscribe();
-  };
-}, []);
+    init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const user = session?.user;
+
+        if (!user) {
+          setAvatar(null);
+          return;
+        }
+
+        await load(user.id);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
