@@ -38,7 +38,33 @@ function criarDiasBase(): Dia[] {
     }));
 }
 
-const nomesSemana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
+// 🔒 garante que nunca começa em sábado/domingo
+function ajustarParaDiaUtil(data: Date): Date {
+    const nova = new Date(data);
+
+    while (nova.getDay() === 0 || nova.getDay() === 6) {
+        nova.setDate(nova.getDate() + 1);
+    }
+
+    return nova;
+}
+
+// 🚀 soma dias úteis ignorando fim de semana
+function adicionarDiasUteis(base: Date, dias: number): Date {
+    const data = new Date(base);
+    let count = 0;
+
+    while (count < dias) {
+        data.setDate(data.getDate() + 1);
+
+        const dia = data.getDay();
+        if (dia !== 0 && dia !== 6) {
+            count++;
+        }
+    }
+
+    return data;
+}
 
 // 🧱 item arrastável
 function SortableItem({
@@ -111,18 +137,26 @@ export default function GradePage() {
 
     // 🧠 data segura
     function getDataBase(): Date {
-        if (!dataInicio) return new Date();
-
-        const d = new Date(dataInicio);
-        return isNaN(d.getTime()) ? new Date() : d;
+        const base = dataInicio ? new Date(dataInicio) : new Date();
+        return ajustarParaDiaUtil(base);
     }
 
-    // 🧠 nome dia
+    // 🧠 nome dia (AGORA PERFEITO)
     function getNomeDia(index: number) {
         if (index === dias.length - 1) return "Obra extra";
 
-        const data = getDataBase();
-        data.setDate(data.getDate() + index);
+        const base = getDataBase();
+        const data = adicionarDiasUteis(base, index);
+
+        const nomesSemana = [
+            "Domingo",
+            "Segunda",
+            "Terça",
+            "Quarta",
+            "Quinta",
+            "Sexta",
+            "Sábado",
+        ];
 
         return `${nomesSemana[data.getDay()]} (${data.toLocaleDateString("pt-BR")})`;
     }
@@ -158,7 +192,7 @@ export default function GradePage() {
 
     function gerarGradeEstendida(total: number) {
         const lista: Dia[] = [];
-        const data = getDataBase();
+        const data = ajustarParaDiaUtil(getDataBase());
 
         while (lista.length < total) {
             const diaSemana = data.getDay();
@@ -190,7 +224,7 @@ export default function GradePage() {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
-    // 🔄 botão de retry separado (SEM conflito)
+    // 🔄 retry
     async function refetch() {
         setLoading(true);
         setErro(null);
@@ -282,7 +316,6 @@ export default function GradePage() {
                     {isExtendida ? "Desativar grade estendida" : "Ativar grade estendida"}
                 </button>
 
-                {/* 🔥 LOADING */}
                 {loading && (
                     <div className="space-y-2 animate-pulse">
                         {Array.from({ length: 3 }).map((_, i) => (
@@ -291,7 +324,6 @@ export default function GradePage() {
                     </div>
                 )}
 
-                {/* ❌ ERRO */}
                 {erro && !loading && (
                     <div className="bg-red-900/40 border border-red-700 p-4 rounded-xl">
                         <p className="text-red-400 mb-2">Erro: {erro}</p>
@@ -304,7 +336,6 @@ export default function GradePage() {
                     </div>
                 )}
 
-                {/* 👀 LISTA */}
                 {!loading && !erro && (
                     <>
                         {fichas.length === 0 && (
