@@ -22,213 +22,224 @@ const defaultTextos: Textos = {
 export default function AdminPage() {
   const [textos, setTextos] = useState<Textos>(defaultTextos);
   const [user, setUser] = useState<User | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [mensagem, setMensagem] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
 
-  // 🚀 INIT com listener de sessão (melhor abordagem)
+  // 🧠 CARREGAMENTO CENTRALIZADO
+  const carregar = async (u: User) => {
+    try {
+      setUser(u);
+
+      const { data, error } = await supabase
+        .from("admin_textos")
+        .select("*")
+        .eq("user_id", u.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setTextos(data);
+        return;
+      }
+
+      const { data: novo, error: insertError } = await supabase
+        .from("admin_textos")
+        .insert({
+          user_id: u.id,
+          ...defaultTextos,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      if (novo) setTextos(novo);
+    } catch (err) {
+      console.error(err);
+      setMsg("❌ Erro ao carregar dados");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🚀 INIT + AUTH LISTENER
   useEffect(() => {
-    const carregar = async (user: User) => {
-      try {
-        setUser(user);
+    let active = true;
 
-        const { data, error } = await supabase
-          .from("admin_textos")
-          .select("*")
-          .eq("user_id", user.id);
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      const u = data?.user;
 
-        if (error) throw error;
+      if (!active) return;
 
-        if (data && data.length > 0) {
-          setTextos(data[0]);
-        } else {
-          const { data: novo, error: insertError } = await supabase
-            .from("admin_textos")
-            .insert({
-              user_id: user.id,
-              ...defaultTextos,
-            })
-            .select()
-            .single();
-
-          if (insertError) throw insertError;
-          if (novo) setTextos(novo);
-        }
-      } catch (err) {
-        console.error(err);
-        setMensagem("❌ Erro ao carregar dados.");
-      } finally {
+      if (u) await carregar(u);
+      else {
+        setMsg("Usuário não autenticado");
         setLoading(false);
       }
     };
 
-    const iniciar = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    init();
 
-      if (session?.user) {
-        await carregar(session.user);
-      } else {
-        setMensagem("Usuário não autenticado.");
-        setLoading(false);
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user;
+
+      if (u) carregar(u);
+      else {
+        setUser(null);
+        setMsg("Sessão encerrada");
       }
-    };
-
-    iniciar();
-
-    // 👀 Escuta mudanças de login/logout automaticamente
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session?.user) {
-          carregar(session.user);
-        } else {
-          setUser(null);
-          setMensagem("Sessão encerrada.");
-        }
-      }
-    );
+    });
 
     return () => {
-      listener.subscription.unsubscribe();
+      active = false;
+      data.subscription.unsubscribe();
     };
   }, []);
 
   // 💾 SALVAR
   const salvar = async () => {
-    if (!user) {
-      setMensagem("Usuário não autenticado.");
-      return;
-    }
+    if (!user) return;
 
     try {
       setSaving(true);
-      setMensagem("");
+      setMsg(null);
 
       const { error } = await supabase
         .from("admin_textos")
         .update({
-          apresentacao: textos.apresentacao,
-          ficha_feedback: textos.ficha_feedback,
-          ficha_conclusao: textos.ficha_conclusao,
-          observacoes: textos.observacoes,
+          ...textos,
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", user.id);
 
       if (error) throw error;
 
-      setMensagem("✅ Salvo com sucesso!");
+      setMsg("✅ Alterações salvas com sucesso");
     } catch (err) {
       console.error(err);
-      setMensagem("❌ Erro ao salvar.");
+      setMsg("❌ Falha ao salvar");
     } finally {
       setSaving(false);
     }
   };
 
-  // ✏️ Atualizar campo
-  const atualizarCampo = (campo: keyof Textos, valor: string) => {
+  const atualizar = (campo: keyof Textos, valor: string) => {
     setTextos((prev) => ({ ...prev, [campo]: valor }));
   };
 
-  // 📋 Copiar
-  const copiar = async (texto: string) => {
+  const copiar = async (txt: string) => {
     try {
-      await navigator.clipboard.writeText(texto);
-      setMensagem("📋 Copiado!");
+      await navigator.clipboard.writeText(txt);
+      setMsg("📋 Copiado para área de transferência");
     } catch {
-      setMensagem("❌ Erro ao copiar.");
+      setMsg("❌ Não foi possível copiar");
     }
   };
 
   if (loading) {
     return (
-      <div className="p-6 text-center text-zinc-400">
-        Carregando painel do ADM...
+      <div className="min-h-screen flex items-center justify-center text-zinc-400">
+        Carregando painel administrativo...
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold">👑 Painel do ADM</h1>
+    <div className="min-h-screen bg-black text-white px-6 py-10 max-w-6xl mx-auto space-y-8">
 
-      {mensagem && (
-        <div className="bg-zinc-800 p-3 rounded text-sm text-center">
-          {mensagem}
+      {/* HEADER */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold">👑 Painel Administrativo</h1>
+        <p className="text-sm text-zinc-400">
+          Gerencie os textos do sistema em tempo real
+        </p>
+      </div>
+
+      {/* STATUS */}
+      {msg && (
+        <div className="bg-white/5 border border-white/10 text-zinc-300 px-4 py-2 rounded-xl text-sm">
+          {msg}
         </div>
       )}
 
-      <Section
-        titulo="🌹 Apresentação"
-        valor={textos.apresentacao}
-        onChange={(v) => atualizarCampo("apresentacao", v)}
-        onCopy={() => copiar(textos.apresentacao)}
-      />
+      {/* GRID */}
+      <div className="grid md:grid-cols-2 gap-6">
 
-      <Section
-        titulo="🍀 Ficha de Feedback"
-        valor={textos.ficha_feedback}
-        onChange={(v) => atualizarCampo("ficha_feedback", v)}
-        onCopy={() => copiar(textos.ficha_feedback)}
-      />
+        <Field
+          title="🌹 Apresentação"
+          value={textos.apresentacao}
+          onChange={(v) => atualizar("apresentacao", v)}
+          onCopy={() => copiar(textos.apresentacao)}
+        />
 
-      <Section
-        titulo="📝 Ficha de Conclusão"
-        valor={textos.ficha_conclusao}
-        onChange={(v) => atualizarCampo("ficha_conclusao", v)}
-        onCopy={() => copiar(textos.ficha_conclusao)}
-      />
+        <Field
+          title="🍀 Feedback"
+          value={textos.ficha_feedback}
+          onChange={(v) => atualizar("ficha_feedback", v)}
+          onCopy={() => copiar(textos.ficha_feedback)}
+        />
 
-      <Section
-        titulo="📌 Observações"
-        valor={textos.observacoes}
-        onChange={(v) => atualizarCampo("observacoes", v)}
-        onCopy={() => copiar(textos.observacoes)}
-      />
+        <Field
+          title="📝 Conclusão"
+          value={textos.ficha_conclusao}
+          onChange={(v) => atualizar("ficha_conclusao", v)}
+          onCopy={() => copiar(textos.ficha_conclusao)}
+        />
 
+        <Field
+          title="📌 Observações"
+          value={textos.observacoes}
+          onChange={(v) => atualizar("observacoes", v)}
+          onCopy={() => copiar(textos.observacoes)}
+        />
+      </div>
+
+      {/* SAVE */}
       <button
         onClick={salvar}
         disabled={saving}
-        className="w-full bg-green-600 hover:bg-green-700 transition px-4 py-3 rounded font-semibold disabled:opacity-50"
+        className="w-full py-3 rounded-xl font-semibold bg-rose-600 hover:bg-rose-700 transition disabled:opacity-50"
       >
-        {saving ? "Salvando..." : "Salvar tudo"}
+        {saving ? "Salvando..." : "Salvar alterações"}
       </button>
     </div>
   );
 }
 
-// 🧩 COMPONENTE
-function Section({
-  titulo,
-  valor,
+/* 🧩 FIELD COMPONENT (UI mais premium) */
+function Field({
+  title,
+  value,
   onChange,
   onCopy,
 }: {
-  titulo: string;
-  valor: string;
+  title: string;
+  value: string;
   onChange: (v: string) => void;
   onCopy: () => void;
 }) {
   return (
-    <div className="bg-zinc-900 p-4 rounded-2xl shadow space-y-3">
-      <div className="flex justify-between items-center">
-        <h2 className="font-semibold">{titulo}</h2>
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 hover:border-white/20 transition">
+
+      <div className="flex items-center justify-between">
+        <h2 className="font-medium text-white/90">{title}</h2>
 
         <button
           onClick={onCopy}
-          className="text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded"
+          className="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition"
         >
           Copiar
         </button>
       </div>
 
       <textarea
-        value={valor}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-40 p-3 bg-zinc-800 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="Digite aqui..."
+        className="w-full h-40 resize-none bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
       />
     </div>
   );
