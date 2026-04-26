@@ -47,34 +47,46 @@ export default function Navbar() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    async function getUser() {
-      const { data } = await supabase.auth.getUser();
+  async function loadUser() {
+    const { data } = await supabase.auth.getUser();
+    const user = data?.user;
 
-      const user = data?.user;
-
-      const name =
-        user?.user_metadata?.name ||
-        user?.email ||
-        "";
-
-      const foto = user?.user_metadata?.foto_url || null;
-
-      if (name) {
-        setInitial(name.charAt(0).toUpperCase());
-        setNome(name);
-      }
-
-      if (user?.email) {
-        setEmail(user.email);
-      }
-
-      if (foto) {
-        setAvatar(foto);
-      }
+    if (!user) {
+      setAvatar(null);
+      return;
     }
 
-    getUser();
-  }, []);
+    const name =
+      user.user_metadata?.name ||
+      user.email ||
+      "";
+
+    const foto = user.user_metadata?.foto_url || null;
+
+    if (name) {
+      setInitial(name.charAt(0).toUpperCase());
+      setNome(name);
+    }
+
+    if (user.email) {
+      setEmail(user.email);
+    }
+
+    // 💡 evita cache da imagem
+    setAvatar(foto ? `${foto}?t=${Date.now()}` : null);
+  }
+
+  loadUser();
+
+  // 🔥 escuta login/logout
+  const { data: listener } = supabase.auth.onAuthStateChange(() => {
+    loadUser();
+  });
+
+  return () => {
+    listener.subscription.unsubscribe();
+  };
+}, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
