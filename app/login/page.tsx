@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Login() {
     const [form, setForm] = useState({
@@ -28,22 +29,19 @@ export default function Login() {
         try {
             setLoading(true);
 
-            const res = await fetch("/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(form),
+            const { error } = await supabase.auth.signInWithPassword({
+                email: form.email,
+                password: form.senha,
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                setErro(data.error || "Erro ao fazer login.");
+            if (error) {
+                setErro(error.message);
                 return;
             }
 
-            if (res.ok) {
-                window.location.href = "/membros";
-            }
+            // 🔥 ESSENCIAL
+            window.location.href = "/membros";
+
         } catch {
             setErro("Erro inesperado.");
         } finally {
