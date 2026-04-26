@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import {
     DndContext,
     closestCenter,
@@ -15,12 +14,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
-
-// 🔌 Supabase
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-);
+import { supabase } from "@/lib/supabaseClient";
 
 // 🧾 Tipos
 interface Ficha {
@@ -80,33 +74,32 @@ export default function GradePage() {
     const [isExtendida, setIsExtendida] = useState(false);
     const [dataInicio, setDataInicio] = useState("");
 
-    // 🚀 fetch reutilizável
-    async function fetchFichas() {
-        setLoading(true);
-        setErro(null);
-
-        try {
-            const { data, error } = await supabase
-                .from("fichas")
-                .select("id, conteudo, deletado")
-                .not("deletado", "eq", true);
-
-            if (error) throw error;
-
-            setFichas(data || []);
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                setErro(err.message);
-            } else {
-                setErro("Erro inesperado ao carregar fichas");
-            }
-        } finally {
-            setLoading(false);
-        }
-    }
-
     useEffect(() => {
-        fetchFichas();
+        async function fetchData() {
+            setLoading(true);
+            setErro(null);
+
+            try {
+                const { data, error } = await supabase
+                    .from("fichas")
+                    .select("id, conteudo, deletado")
+                    .not("deletado", "eq", true);
+
+                if (error) throw error;
+
+                setFichas(data || []);
+            } catch (err: unknown) {
+                if (err instanceof Error) {
+                    setErro(err.message);
+                } else {
+                    setErro("Erro inesperado ao carregar fichas");
+                }
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     // 🔍 filtro
@@ -197,6 +190,31 @@ export default function GradePage() {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
+    // 🔄 botão de retry separado (SEM conflito)
+    async function refetch() {
+        setLoading(true);
+        setErro(null);
+
+        try {
+            const { data, error } = await supabase
+                .from("fichas")
+                .select("id, conteudo, deletado")
+                .not("deletado", "eq", true);
+
+            if (error) throw error;
+
+            setFichas(data || []);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setErro(err.message);
+            } else {
+                setErro("Erro inesperado ao carregar fichas");
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
+
     function gerarTexto() {
         let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
         texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
@@ -278,7 +296,7 @@ export default function GradePage() {
                     <div className="bg-red-900/40 border border-red-700 p-4 rounded-xl">
                         <p className="text-red-400 mb-2">Erro: {erro}</p>
                         <button
-                            onClick={fetchFichas}
+                            onClick={refetch}
                             className="bg-red-600 px-3 py-1 rounded"
                         >
                             Tentar novamente 🔄
