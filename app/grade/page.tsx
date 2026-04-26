@@ -41,7 +41,7 @@ const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
 const uid = () => crypto.randomUUID();
 
-// 🧱 base da grade (5 dias + obra extra)
+// 🧱 base padrão (5 dias + obra extra)
 function criarDiasBase(): Dia[] {
     return Array.from({ length: 6 }).map(() => ({
         id: uid(),
@@ -49,7 +49,7 @@ function criarDiasBase(): Dia[] {
     }));
 }
 
-// 🧩 item arrastável
+// 🧩 draggable item
 function SortableItem({
     id,
     children,
@@ -78,7 +78,7 @@ function SortableItem({
 // 🔍 detector de gatilhos
 function detectarGatilhos(texto: string): string[] {
     const t = texto.toLowerCase();
-    return GATILHOS_SENSIVEIS.filter((g) => t.includes(g));
+    return GATILHOS_SENSIVEIS.filter(g => t.includes(g));
 }
 
 export default function GradePage() {
@@ -114,7 +114,7 @@ export default function GradePage() {
         };
     }, []);
 
-    // ⚡ map otimizado
+    // ⚡ mapa otimizado
     const fichasMap = useMemo(() => {
         const map = new Map<string, Ficha>();
         fichas.forEach(f => map.set(f.id, f));
@@ -124,7 +124,9 @@ export default function GradePage() {
     // 🔍 filtro
     const fichasFiltradas = useMemo(() => {
         const q = busca.toLowerCase();
-        return fichas.filter(f => f.conteudo.toLowerCase().includes(q));
+        return fichas.filter(f =>
+            f.conteudo.toLowerCase().includes(q)
+        );
     }, [busca, fichas]);
 
     // 🚨 alerta inteligente
@@ -139,7 +141,7 @@ export default function GradePage() {
 
             if (gatilhos.length) {
                 ocorrencias.push({
-                    dia: index === 5 ? "Obra extra" : DIAS_SEMANA[index],
+                    dia: index === 5 ? "Obra Extra" : DIAS_SEMANA[index],
                     gatilhos,
                 });
             }
@@ -147,14 +149,11 @@ export default function GradePage() {
 
         if (ocorrencias.length < 2) return null;
 
-        const conflitos = ocorrencias
-            .map(o => `${o.dia} (${o.gatilhos.join(", ")})`)
-            .join(" | ");
-
-        return `⚠️ Conflito de conteúdo sensível detectado entre: ${conflitos}`;
+        return `⚠️ Conflito de conteúdo sensível entre: ` +
+            ocorrencias.map(o => `${o.dia} (${o.gatilhos.join(", ")})`).join(" | ");
     }, [dias, fichasMap]);
 
-    // 🎯 selecionar ficha
+    // 🎯 seleção
     function selecionarFicha(diaId: string, fichaId: string) {
         setDias(prev =>
             prev.map(d =>
@@ -179,12 +178,12 @@ export default function GradePage() {
         });
     }
 
-    // ✨ título ficha
+    // ✨ título
     function extrairTitulo(conteudo: string) {
         return conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
     }
 
-    // 🧾 gerar texto final
+    // 🧾 texto final (SEM ALTERAR SUA LÓGICA)
     function gerarTexto() {
         let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
         texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
@@ -195,7 +194,9 @@ export default function GradePage() {
             const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
 
             const nomeDia =
-                index === 5 ? "Obra Extra" : DIAS_SEMANA[index];
+                index === 5
+                    ? "Obra Extra"
+                    : DIAS_SEMANA[index];
 
             texto += `❛ ${nomeDia} ❜\n\n`;
 
@@ -248,18 +249,26 @@ export default function GradePage() {
                     className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
                 />
 
+                {/* 🌹 GRADE ESTENDIDA PRESERVADA */}
                 <button
                     onClick={() => setIsExtendida(!isExtendida)}
                     className="bg-purple-600 px-4 py-2 rounded"
                 >
-                    {isExtendida ? "Desativar grade estendida" : "Ativar grade estendida"}
+                    {isExtendida
+                        ? "Desativar grade estendida"
+                        : "Ativar grade estendida"}
                 </button>
 
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={dias.map(d => d.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext
+                        items={dias.map(d => d.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
                         {dias.map((dia, index) => {
                             const nomeDia =
-                                index === 5 ? "Obra Extra" : DIAS_SEMANA[index];
+                                index === 5
+                                    ? "Obra Extra"
+                                    : DIAS_SEMANA[index];
 
                             return (
                                 <SortableItem key={dia.id} id={dia.id}>
