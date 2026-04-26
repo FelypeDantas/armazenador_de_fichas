@@ -1,26 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
+// lib/supabaseServer.ts
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-/**
- * 👑 CLIENTE ADMIN (SERVICE ROLE)
- * - Ignora RLS
- * - Acesso total ao banco
- * - USAR APENAS NO BACKEND (/api)
- */
-export function getSupabaseAdmin() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  }
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies(); // 👈 AQUI
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      auth: {
-        persistSession: false, // 👈 importante no server
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        },
       },
     }
   );
