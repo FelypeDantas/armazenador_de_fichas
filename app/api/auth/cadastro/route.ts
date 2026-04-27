@@ -3,8 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import bcrypt from "bcryptjs"; 
 
 export async function POST(req: Request) { 
-  const supabase = await createSupabaseServerClient(); // ✅ AGORA CERTO const 
-  { nome, email, senha } = await req.json(); 
+  const supabase = await createSupabaseServerClient(); // ✅ AGORA CERTO 
+  const { nome, email, senha } = await req.json(); 
   if (!nome || !email || !senha) { 
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 }); 
   }
