@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function Login() {
     const [form, setForm] = useState({
@@ -29,17 +28,22 @@ export default function Login() {
         try {
             setLoading(true);
 
-            const { error } = await supabase.auth.signInWithPassword({
-                email: form.email,
-                password: form.senha,
+            const res = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: form.email,
+                    senha: form.senha,
+                }),
             });
 
-            if (error) {
-                setErro(error.message);
+            const data = await res.json();
+
+            if (!res.ok) {
+                setErro(data?.error || "Erro ao fazer login.");
                 return;
             }
 
-            // 🔥 ESSENCIAL
             window.location.href = "/membros";
 
         } catch {
@@ -59,12 +63,10 @@ export default function Login() {
             {/* 🧊 Card */}
             <div className="relative w-full max-w-md">
 
-                {/* borda glow */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-rose-500/20 to-purple-500/20 blur-xl opacity-60" />
 
                 <div className="relative bg-zinc-900/70 backdrop-blur-xl border border-white/10 rounded-2xl p-8 space-y-6 shadow-[0_0_40px_rgba(0,0,0,0.6)]">
 
-                    {/* Header */}
                     <div className="text-center space-y-2">
                         <h1 className="text-3xl font-semibold text-white tracking-tight">
                             Bem-vindo
@@ -74,17 +76,14 @@ export default function Login() {
                         </p>
                     </div>
 
-                    {/* Erro */}
                     {erro && (
                         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-lg animate-pulse">
                             {erro}
                         </div>
                     )}
 
-                    {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-5">
 
-                        {/* Email */}
                         <div className="space-y-1">
                             <label className="text-xs text-zinc-400 uppercase tracking-wider">
                                 Email
@@ -99,7 +98,6 @@ export default function Login() {
                             />
                         </div>
 
-                        {/* Senha */}
                         <div className="space-y-1 relative">
                             <label className="text-xs text-zinc-400 uppercase tracking-wider">
                                 Senha
@@ -123,7 +121,6 @@ export default function Login() {
                             </button>
                         </div>
 
-                        {/* Botão */}
                         <button
                             type="submit"
                             disabled={loading}
@@ -135,7 +132,6 @@ export default function Login() {
                         </button>
                     </form>
 
-                    {/* Footer */}
                     <p className="text-center text-sm text-zinc-500">
                         Não tem conta?{" "}
                         <a
