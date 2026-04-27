@@ -13,57 +13,43 @@ export default function FormFicha() {
     e.preventDefault();
 
     const conteudo = texto.trim();
-
     if (!conteudo) {
       setStatus("error");
       return;
     }
 
-    try {
-      setLoading(true);
-      setStatus("idle");
+    setLoading(true);
+    setStatus("idle");
 
+    try {
       const res = await fetch("/api/fichas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
         },
         body: JSON.stringify({ conteudo }),
       });
 
-      // 🧠 tenta ler resposta com segurança
-      let data: any = null;
+      const data = await res.json().catch(() => null);
 
-      try {
-        data = await res.json();
-      } catch {
-        data = null;
-      }
-
-      // ❌ erro vindo da API
-      if (!res.ok) {
-        console.error("API error:", data);
-        setStatus("error");
-        return;
-      }
-
-      // 🧼 valida resposta esperada
-      if (!data?.success) {
-        console.error("Resposta inesperada:", data);
+      if (!res.ok || !data?.success) {
+        console.error("Falha ao salvar ficha:", data);
         setStatus("error");
         return;
       }
 
       setTexto("");
       setStatus("success");
-    } catch (error) {
-      console.error("Network error:", error);
+    } catch (err) {
+      console.error("Erro de rede:", err);
       setStatus("error");
     } finally {
       setLoading(false);
     }
   }
+
+  const inputBase =
+    "w-full h-80 p-4 rounded-xl border bg-transparent resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]";
 
   return (
     <form
@@ -78,10 +64,9 @@ export default function FormFicha() {
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         placeholder="Cole aqui sua ficha..."
-        className="w-full h-80 p-4 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+        className={`${inputBase} border-zinc-300 dark:border-zinc-700`}
       />
 
-      {/* STATUS */}
       {status === "success" && (
         <p className="text-green-500 text-sm">
           Ficha salva com sucesso 🧾✨
@@ -99,9 +84,11 @@ export default function FormFicha() {
         disabled={loading}
         className={`
           w-full py-3 rounded-xl font-semibold transition
-          ${loading
-            ? "bg-zinc-400 cursor-not-allowed"
-            : "bg-[var(--primary)] hover:opacity-90 text-white"}
+          ${
+            loading
+              ? "bg-zinc-400 cursor-not-allowed"
+              : "bg-[var(--primary)] hover:opacity-90 text-white"
+          }
         `}
       >
         {loading ? "Salvando..." : "Salvar ficha"}
