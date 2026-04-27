@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServerClient(); // ✅ AGORA CERTO
+  const supabase = await createSupabaseServerClient();
 
   const { nome, email, senha } = await req.json();
 
@@ -11,17 +10,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }
 
-  const senhaHash = await bcrypt.hash(senha, 10);
-
-  const { error } = await supabase.from("admins").insert({
-    nome,
+  // 🔥 cria usuário no AUTH (isso resolve seu login)
+  const { data, error } = await supabase.auth.signUp({
     email,
-    senha: senhaHash,
+    password: senha,
+    options: {
+      data: { nome },
+    },
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, user: data.user });
 }
