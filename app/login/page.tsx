@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Login() {
     const [form, setForm] = useState({
@@ -28,22 +29,17 @@ export default function Login() {
         try {
             setLoading(true);
 
-            const res = await fetch("/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: form.email,
-                    senha: form.senha,
-                }),
+            const { error } = await supabase.auth.signInWithPassword({
+                email: form.email,
+                password: form.senha,
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                setErro(data?.error || "Erro ao fazer login.");
+            if (error) {
+                setErro(error.message);
                 return;
             }
 
+            // 🔥 ESSENCIAL
             window.location.href = "/membros";
 
         } catch {
@@ -63,10 +59,12 @@ export default function Login() {
             {/* 🧊 Card */}
             <div className="relative w-full max-w-md">
 
+                {/* borda glow */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-rose-500/20 to-purple-500/20 blur-xl opacity-60" />
 
                 <div className="relative bg-zinc-900/70 backdrop-blur-xl border border-white/10 rounded-2xl p-8 space-y-6 shadow-[0_0_40px_rgba(0,0,0,0.6)]">
 
+                    {/* Header */}
                     <div className="text-center space-y-2">
                         <h1 className="text-3xl font-semibold text-white tracking-tight">
                             Bem-vindo
@@ -76,18 +74,22 @@ export default function Login() {
                         </p>
                     </div>
 
+                    {/* Erro */}
                     {erro && (
                         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-lg animate-pulse">
                             {erro}
                         </div>
                     )}
 
+                    {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-5">
 
+                        {/* Email */}
                         <div className="space-y-1">
                             <label className="text-xs text-zinc-400 uppercase tracking-wider">
                                 Email
                             </label>
+
                             <input
                                 name="email"
                                 type="email"
@@ -98,6 +100,7 @@ export default function Login() {
                             />
                         </div>
 
+                        {/* Senha */}
                         <div className="space-y-1 relative">
                             <label className="text-xs text-zinc-400 uppercase tracking-wider">
                                 Senha
@@ -121,17 +124,17 @@ export default function Login() {
                             </button>
                         </div>
 
+                        {/* Botão */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full relative overflow-hidden rounded-lg py-2.5 font-medium text-white transition-all
-              bg-gradient-to-r from-rose-600 to-purple-600
-              hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                            className="w-full relative overflow-hidden rounded-lg py-2.5 font-medium text-white transition-all bg-gradient-to-r from-rose-600 to-purple-600 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                         >
                             {loading ? "Entrando..." : "Entrar"}
                         </button>
                     </form>
 
+                    {/* Footer */}
                     <p className="text-center text-sm text-zinc-500">
                         Não tem conta?{" "}
                         <a
@@ -141,6 +144,7 @@ export default function Login() {
                             Criar conta
                         </a>
                     </p>
+
                 </div>
             </div>
         </div>
