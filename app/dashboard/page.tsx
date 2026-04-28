@@ -3,33 +3,44 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+/* ─────────────────────────────
+   TYPES
+──────────────────────────── */
+
 type Ficha = {
   id: string;
   conteudo: string;
   created_at: string;
 };
 
-// 🧠 UTILS (mais seguros)
-const contarPalavras = (texto: string) =>
-  texto ? texto.trim().split(/\s+/).filter(Boolean).length : 0;
+/* ─────────────────────────────
+   UTILS
+──────────────────────────── */
 
-const formatarDia = (data: string) =>
+const contarPalavras = (texto: string = "") =>
+  texto.trim().split(/\s+/).filter(Boolean).length;
+
+const formatarData = (data: string) =>
   new Date(data).toLocaleDateString("pt-BR");
+
+/* ─────────────────────────────
+   COMPONENT
+──────────────────────────── */
 
 export default function Dashboard() {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🚀 FETCH ROBUSTO
+  /* ─────────────────────────────
+     FETCH
+  ───────────────────────────── */
+
   useEffect(() => {
-    let active = true;
+    let alive = true;
 
-    const fetchData = async () => {
+    const load = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
         const { data, error } = await supabase
           .from("fichas")
           .select("id, conteudo, created_at")
@@ -37,35 +48,38 @@ export default function Dashboard() {
 
         if (error) throw error;
 
-        if (!active) return;
-        setFichas(data || []);
-      } catch (err) {
-        console.error(err);
-        setError("Erro ao carregar fichas");
+        if (alive) setFichas(data ?? []);
+      } catch (e) {
+        console.error(e);
+        if (alive) setError("Erro ao carregar fichas");
       } finally {
-        if (active) setLoading(false);
+        if (alive) setLoading(false);
       }
     };
 
-    fetchData();
+    load();
 
     return () => {
-      active = false;
+      alive = false;
     };
   }, []);
 
-  // 📊 MÉTRICAS OTIMIZADAS
+  /* ─────────────────────────────
+     METRICS
+  ───────────────────────────── */
+
   const metrics = useMemo(() => {
-    const hoje = new Date().toLocaleDateString("pt-BR");
+    const hoje = formatarData(new Date().toISOString());
 
     return fichas.reduce(
-      (acc, f) => {
-        acc.totalFichas++;
-        acc.totalPalavras += contarPalavras(f.conteudo);
+      (acc, ficha) => {
+        const palavras = contarPalavras(ficha.conteudo);
+        const dia = formatarData(ficha.created_at);
 
-        if (formatarDia(f.created_at) === hoje) {
-          acc.fichasHoje++;
-        }
+        acc.totalFichas += 1;
+        acc.totalPalavras += palavras;
+
+        if (dia === hoje) acc.fichasHoje += 1;
 
         return acc;
       },
@@ -77,19 +91,25 @@ export default function Dashboard() {
     );
   }, [fichas]);
 
-  // 📈 GRÁFICO (últimos 7 dias mais consistente)
+  /* ─────────────────────────────
+     CHART DATA
+  ───────────────────────────── */
+
   const fichasPorDia = useMemo(() => {
     const mapa = new Map<string, number>();
 
-    fichas.forEach((f) => {
-      const dia = formatarDia(f.created_at);
-      mapa.set(dia, (mapa.get(dia) || 0) + 1);
-    });
+    for (const f of fichas) {
+      const dia = formatarData(f.created_at);
+      mapa.set(dia, (mapa.get(dia) ?? 0) + 1);
+    }
 
     return Array.from(mapa.entries()).slice(-7);
   }, [fichas]);
 
-  // 🌀 LOADING
+  /* ─────────────────────────────
+     STATES
+  ───────────────────────────── */
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-400">
@@ -98,7 +118,6 @@ export default function Dashboard() {
     );
   }
 
-  // ❌ ERRO
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-400">
@@ -107,25 +126,29 @@ export default function Dashboard() {
     );
   }
 
+  /* ─────────────────────────────
+     RENDER
+  ───────────────────────────── */
+
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10 space-y-8">
 
       {/* HEADER */}
-      <div>
+      <header>
         <h1 className="text-3xl font-bold">📊 Dashboard</h1>
         <p className="text-zinc-400 text-sm">
           Visão geral das fichas do sistema
         </p>
-      </div>
+      </header>
 
       {/* CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card title="Total de Fichas" value={metrics.totalFichas} />
         <Card title="Criadas Hoje" value={metrics.fichasHoje} />
         <Card title="Palavras Totais" value={metrics.totalPalavras} />
-      </div>
+      </section>
 
-      {/* GRÁFICO */}
+      {/* CHART */}
       <section className="bg-white/5 border border-white/10 rounded-2xl p-5">
         <h2 className="text-sm text-zinc-300 mb-4">
           Fichas dos últimos dias
@@ -150,11 +173,9 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* LISTA */}
+      {/* LIST */}
       <section className="bg-white/5 border border-white/10 rounded-2xl p-5">
-        <h2 className="text-sm text-zinc-300 mb-4">
-          Fichas recentes
-        </h2>
+        <h2 className="text-sm text-zinc-300 mb-4">Fichas recentes</h2>
 
         <div className="space-y-3 max-h-80 overflow-auto pr-1">
           {fichas.slice(0, 5).map((f) => (
@@ -162,8 +183,8 @@ export default function Dashboard() {
               key={f.id}
               className="p-3 rounded-xl bg-black/40 border border-white/10 text-sm text-zinc-300 hover:border-white/20 transition"
             >
-              {f.conteudo?.slice(0, 120) || "Sem conteúdo"}
-              {f.conteudo?.length > 120 ? "..." : ""}
+              {f.conteudo?.slice(0, 120) ?? "Sem conteúdo"}
+              {f.conteudo && f.conteudo.length > 120 ? "..." : ""}
             </div>
           ))}
         </div>
@@ -172,7 +193,10 @@ export default function Dashboard() {
   );
 }
 
-// 🧱 CARD MODERNO
+/* ─────────────────────────────
+   CARD COMPONENT
+──────────────────────────── */
+
 function Card({ title, value }: { title: string; value: number }) {
   return (
     <div className="bg-white/5 border border-white/10 p-4 rounded-2xl hover:scale-[1.02] transition">
