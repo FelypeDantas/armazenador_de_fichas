@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 
+/* ─────────────────────────────
+   TYPES
+──────────────────────────── */
+
 type Textos = {
   id?: string;
   apresentacao: string;
@@ -19,94 +23,113 @@ const defaultTextos: Textos = {
   observacoes: "",
 };
 
+/* ─────────────────────────────
+   PAGE
+──────────────────────────── */
+
 export default function AdminPage() {
   const [textos, setTextos] = useState<Textos>(defaultTextos);
   const [user, setUser] = useState<User | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
-  // 🧠 CARREGAMENTO CENTRALIZADO
-  const carregar = async (u: User) => {
-    try {
-      setUser(u);
+  /* ─────────────────────────────
+     LOAD OR CREATE
+  ───────────────────────────── */
 
-      const { data, error } = await supabase
-        .from("admin_textos")
-        .select("*")
-        .eq("user_id", u.id)
-        .maybeSingle();
+  const loadOrCreate = async (u: User) => {
+    setUser(u);
 
-      if (error) throw error;
+    const { data, error } = await supabase
+      .from("admin_textos")
+      .select("*")
+      .eq("user_id", u.id)
+      .maybeSingle();
 
-      if (data) {
-        setTextos(data);
-        return;
-      }
-
-      const { data: novo, error: insertError } = await supabase
-        .from("admin_textos")
-        .insert({
-          user_id: u.id,
-          ...defaultTextos,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      if (novo) setTextos(novo);
-    } catch (err) {
-      console.error(err);
-      setMsg("❌ Erro ao carregar dados");
-    } finally {
-      setLoading(false);
+    if (error) {
+      console.error(error);
+      setStatus("❌ Erro ao carregar dados");
+      return;
     }
+
+    if (data) {
+      setTextos(data);
+      return;
+    }
+
+    const { data: created, error: insertError } = await supabase
+      .from("admin_textos")
+      .insert({
+        user_id: u.id,
+        ...defaultTextos,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error(insertError);
+      setStatus("❌ Erro ao inicializar dados");
+      return;
+    }
+
+    setTextos(created ?? defaultTextos);
   };
 
-  // 🚀 INIT + AUTH LISTENER
+  /* ─────────────────────────────
+     INIT + AUTH LISTENER
+  ───────────────────────────── */
+
   useEffect(() => {
-    let active = true;
+    let alive = true;
 
     const init = async () => {
       const { data } = await supabase.auth.getUser();
       const u = data?.user;
 
-      if (!active) return;
+      if (!alive) return;
 
-      if (u) await carregar(u);
-      else {
-        setMsg("Usuário não autenticado");
-        setLoading(false);
-      }
+      if (u) await loadOrCreate(u);
+      else setStatus("⚠️ Usuário não autenticado");
+
+      setLoading(false);
     };
 
     init();
 
-    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
-      const u = session?.user;
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const u = session?.user;
 
-      if (u) carregar(u);
-      else {
-        setUser(null);
-        setMsg("Sessão encerrada");
+        if (u) await loadOrCreate(u);
+        else {
+          setUser(null);
+          setStatus("⚠️ Sessão encerrada");
+        }
       }
-    });
+    );
 
     return () => {
-      active = false;
-      data.subscription.unsubscribe();
+      alive = false;
+      listener.subscription.unsubscribe();
     };
   }, []);
 
-  // 💾 SALVAR
+  /* ─────────────────────────────
+     ACTIONS
+  ───────────────────────────── */
+
+  const atualizar = (campo: keyof Textos, valor: string) => {
+    setTextos((prev) => ({ ...prev, [campo]: valor }));
+  };
+
   const salvar = async () => {
     if (!user) return;
 
     try {
       setSaving(true);
-      setMsg(null);
+      setStatus(null);
 
       const { error } = await supabase
         .from("admin_textos")
@@ -118,27 +141,27 @@ export default function AdminPage() {
 
       if (error) throw error;
 
-      setMsg("✅ Alterações salvas com sucesso");
+      setStatus("✅ Alterações salvas com sucesso");
     } catch (err) {
       console.error(err);
-      setMsg("❌ Falha ao salvar");
+      setStatus("❌ Falha ao salvar");
     } finally {
       setSaving(false);
     }
   };
 
-  const atualizar = (campo: keyof Textos, valor: string) => {
-    setTextos((prev) => ({ ...prev, [campo]: valor }));
-  };
-
-  const copiar = async (txt: string) => {
+  const copiar = async (value: string) => {
     try {
-      await navigator.clipboard.writeText(txt);
-      setMsg("📋 Copiado para área de transferência");
+      await navigator.clipboard.writeText(value);
+      setStatus("📋 Copiado para área de transferência");
     } catch {
-      setMsg("❌ Não foi possível copiar");
+      setStatus("❌ Não foi possível copiar");
     }
   };
+
+  /* ─────────────────────────────
+     LOADING
+  ───────────────────────────── */
 
   if (loading) {
     return (
@@ -148,55 +171,35 @@ export default function AdminPage() {
     );
   }
 
+  /* ─────────────────────────────
+     UI
+  ───────────────────────────── */
+
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10 max-w-6xl mx-auto space-y-8">
 
       {/* HEADER */}
-      <div className="flex flex-col gap-1">
+      <header className="space-y-1">
         <h1 className="text-3xl font-bold">👑 Painel Administrativo</h1>
         <p className="text-sm text-zinc-400">
           Gerencie os textos do sistema em tempo real
         </p>
-      </div>
+      </header>
 
       {/* STATUS */}
-      {msg && (
+      {status && (
         <div className="bg-white/5 border border-white/10 text-zinc-300 px-4 py-2 rounded-xl text-sm">
-          {msg}
+          {status}
         </div>
       )}
 
       {/* GRID */}
-      <div className="grid md:grid-cols-2 gap-6">
-
-        <Field
-          title="🌹 Apresentação"
-          value={textos.apresentacao}
-          onChange={(v) => atualizar("apresentacao", v)}
-          onCopy={() => copiar(textos.apresentacao)}
-        />
-
-        <Field
-          title="🍀 Feedback"
-          value={textos.ficha_feedback}
-          onChange={(v) => atualizar("ficha_feedback", v)}
-          onCopy={() => copiar(textos.ficha_feedback)}
-        />
-
-        <Field
-          title="📝 Conclusão"
-          value={textos.ficha_conclusao}
-          onChange={(v) => atualizar("ficha_conclusao", v)}
-          onCopy={() => copiar(textos.ficha_conclusao)}
-        />
-
-        <Field
-          title="📌 Observações"
-          value={textos.observacoes}
-          onChange={(v) => atualizar("observacoes", v)}
-          onCopy={() => copiar(textos.observacoes)}
-        />
-      </div>
+      <section className="grid md:grid-cols-2 gap-6">
+        <Field title="🌹 Apresentação" value={textos.apresentacao} onChange={(v) => atualizar("apresentacao", v)} onCopy={() => copiar(textos.apresentacao)} />
+        <Field title="🍀 Feedback" value={textos.ficha_feedback} onChange={(v) => atualizar("ficha_feedback", v)} onCopy={() => copiar(textos.ficha_feedback)} />
+        <Field title="📝 Conclusão" value={textos.ficha_conclusao} onChange={(v) => atualizar("ficha_conclusao", v)} onCopy={() => copiar(textos.ficha_conclusao)} />
+        <Field title="📌 Observações" value={textos.observacoes} onChange={(v) => atualizar("observacoes", v)} onCopy={() => copiar(textos.observacoes)} />
+      </section>
 
       {/* SAVE */}
       <button
@@ -210,7 +213,10 @@ export default function AdminPage() {
   );
 }
 
-/* 🧩 FIELD COMPONENT (UI mais premium) */
+/* ─────────────────────────────
+   FIELD COMPONENT
+──────────────────────────── */
+
 function Field({
   title,
   value,
