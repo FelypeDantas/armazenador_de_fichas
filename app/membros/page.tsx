@@ -454,7 +454,7 @@ useEffect(() => {
                               : prev
                           );
                         }}
-                        className="w-full mb-3 p-2 border rounded"
+                        className="w-full mb-3 p-2 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                       >
                         <option value="">Sem título</option>
                         {titulosList.map((t) => (
