@@ -321,7 +321,7 @@ useEffect(() => {
                               setSelected(ficha);
                               setEditText(limparFormatacaoWhatsApp(ficha.conteudo));
                             }}
-                            className="text-xs sm:text-sm px-3 py-1.5 rounded-lg"
+                            className="text-xs sm:text-sm px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition"
                           >
                             Editar
                           </button>
