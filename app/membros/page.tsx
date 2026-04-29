@@ -146,7 +146,9 @@ export default function MembrosPage() {
       const res = await fetch(`/api/fichas/${selected.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conteudo: editText }),
+        body: JSON.stringify({ conteudo: editText,
+                             titulo_id: selected.titulos?.id || null,
+                             }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -210,11 +212,20 @@ export default function MembrosPage() {
         </header>
 
         {/* GRID */}
-        {!loading && filtered.length > 0 && (
+        {!loading && Object.keys(grouped).length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+            {Object.entries(grouped).map(([titulo, lista]) => (
+              <div key={titulo}>
+
+                {/* 🏷️ TÍTULO */}
+                <h2 className="text-lg font-semibold mb-4 text-zinc-500">
+                  {titulo}
+                </h2>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
 
             <AnimatePresence>
-              {filtered.map((ficha, i) => (
+              {lista.map((ficha, i) => (
                 <motion.article
                   key={ficha.id}
                   layout
