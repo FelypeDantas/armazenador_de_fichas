@@ -8,6 +8,10 @@ type Ficha = {
   id: string;
   conteudo: string;
   created_at: string;
+  titulos?: {
+    id: string;
+    titulo: string;
+  };
 };
 
 type ApiResponse = {
