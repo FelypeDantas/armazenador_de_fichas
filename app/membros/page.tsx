@@ -226,7 +226,7 @@ export default function MembrosPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ delay: i * 0.02 }}
-                        className="bg-white dark:bg-zinc-900 border rounded-2xl p-4"
+                        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition"
                       >
 
                         {/* 👤 NOME */}
