@@ -213,102 +213,108 @@ export default function MembrosPage() {
 
         {/* GRID */}
         {!loading && Object.keys(grouped).length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+          <div className="space-y-10">
+        
             {Object.entries(grouped).map(([titulo, lista]) => (
               <div key={titulo}>
-
+        
                 {/* 🏷️ TÍTULO */}
                 <h2 className="text-lg font-semibold mb-4 text-zinc-500">
                   {titulo}
                 </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-
-            <AnimatePresence>
-              {lista.map((ficha, i) => (
-                <motion.article
-                  key={ficha.id}
-                  layout
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: i * 0.02 }}
-                  className="bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition"
-                >
-
-                  {/* 👤 PRIMEIRA LINHA EM NEGRITO (NÃO É TÍTULO) */}
-                  <p className="font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                    {extractFirstLine(ficha.conteudo)}
-                  </p>
-
-                   {/* 🏷️ SUBTÍTULO */}
-                        <p className="font-bold text-xs text-zinc-500 dark:text-zinc-100 mb-2">
+        
+                {/* GRID DO GRUPO */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+        
+                  <AnimatePresence>
+                    {lista.map((ficha, i) => (
+                      <motion.article
+                        key={ficha.id}
+                        layout
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ delay: i * 0.02 }}
+                        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition"
+                      >
+        
+                        {/* 👤 NOME */}
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100 mb-1">
+                          {extractFirstLine(ficha.conteudo)}
+                        </p>
+        
+                        {/* 🏷️ SUBTÍTULO */}
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
                           {ficha.titulos?.titulo || "Sem título"}
                         </p>
-
-                  {/* 🔥 resto da ficha */}
-                  <div className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words">
-                    {ficha.conteudo.split("\n").map((line, idx) => {
-                      if (idx === 0) return null;
-
-                      const isQtdPalavras = /quantidade de palavras/i.test(line);
-
-                      if (isQtdPalavras) {
-                        return (
-                          <p key={idx} className="font-bold">
-                            {line}
-                          </p>
-                        );
-                      }
-
-                      const index = line.indexOf(":");
-
-                      if (index === -1) {
-                        return <p key={idx}>{line}</p>;
-                      }
-
-                      const k = line.slice(0, index);
-                      const v = line.slice(index + 1);
-
-                      return (
-                        <p key={idx}>
-                          <strong>{k}:</strong>{v}
-                        </p>
-                      );
-                    })}
-                  </div>
-
-                  {/* AÇÕES */}
-                 <div className="flex flex-wrap gap-2 mt-4">
-                    <button
-                      onClick={() => {
-                        setSelected(ficha);
-                        setEditText(limparFormatacaoWhatsApp(ficha.conteudo));
-                      }}
-                      className="text-xs sm:text-sm px-3 py-1.5 rounded-lg"
-                    >
-                      Editar
-                    </button>
-
-                    <button
-                      onClick={() => copiarFicha(ficha.conteudo)}
-                      className="text-xs px-3 py-1 rounded-lg bg-green-500/10 text-green-500"
-                    >
-                      Copiar
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(ficha.id)}
-                      className="text-xs px-3 py-1 rounded-lg bg-red-500/10 text-red-500"
-                    >
-                      Excluir
-                    </button>
-                  </div>
-
-                </motion.article>
-              ))}
-            </AnimatePresence>
-
+        
+                        {/* 📄 CONTEÚDO */}
+                        <div className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words">
+                          {ficha.conteudo.split("\n").map((line, idx) => {
+                            if (idx === 0) return null;
+        
+                            const isQtdPalavras = /quantidade de palavras/i.test(line);
+        
+                            if (isQtdPalavras) {
+                              return (
+                                <p key={idx} className="font-bold">
+                                  {line}
+                                </p>
+                              );
+                            }
+        
+                            const index = line.indexOf(":");
+        
+                            if (index === -1) {
+                              return <p key={idx}>{line}</p>;
+                            }
+        
+                            const k = line.slice(0, index);
+                            const v = line.slice(index + 1);
+        
+                            return (
+                              <p key={idx}>
+                                <strong>{k}:</strong>{v}
+                              </p>
+                            );
+                          })}
+                        </div>
+        
+                        {/* AÇÕES */}
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          <button
+                            onClick={() => {
+                              setSelected(ficha);
+                              setEditText(limparFormatacaoWhatsApp(ficha.conteudo));
+                            }}
+                            className="text-xs sm:text-sm px-3 py-1.5 rounded-lg"
+                          >
+                            Editar
+                          </button>
+        
+                          <button
+                            onClick={() => copiarFicha(ficha.conteudo)}
+                            className="text-xs px-3 py-1 rounded-lg bg-green-500/10 text-green-500"
+                          >
+                            Copiar
+                          </button>
+        
+                          <button
+                            onClick={() => handleDelete(ficha.id)}
+                            className="text-xs px-3 py-1 rounded-lg bg-red-500/10 text-red-500"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+        
+                      </motion.article>
+                    ))}
+                  </AnimatePresence>
+        
+                </div>
+              </div>
+            ))}
+        
           </div>
         )}
 
