@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
+import { supabase } from "@/lib/supabaseClient";
 
 type Ficha = {
   id: string;
@@ -18,6 +19,11 @@ type ApiResponse = {
   success?: boolean;
   data?: Ficha[];
   error?: string;
+};
+
+type Titulo = {
+  id: string;
+  titulo: string;
 };
 
 /* ─────────────────────────────────────────────
@@ -59,44 +65,72 @@ export default function MembrosPage() {
   const [editText, setEditText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [titulosList, setTitulosList] = useState<Titulo[]>([]);
 
   /* ─────────────────────────────────────────────
      📦 FETCH
   ───────────────────────────────────────────── */
-  useEffect(() => {
-    let active = true;
+useEffect(() => {
+  let isMounted = true;
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
+  async function loadData() {
+    setLoading(true);
+    setError(null);
 
-        const res = await fetch("/api/fichas");
+    try {
+      // 🔄 paralelo: API + banco direto
+      const [fichasRes, titulosRes] = await Promise.allSettled([
+        fetch("/api/fichas"),
+        supabase
+          .from("titulos")
+          .select("id, titulo")
+          .order("titulo"),
+      ]);
+
+      // 📄 FICHAS
+      if (fichasRes.status === "fulfilled") {
+        const res = fichasRes.value;
         const json: ApiResponse = await res.json().catch(() => ({}));
 
         if (!res.ok) {
           throw new Error(json.error || "Erro ao buscar fichas");
         }
 
-        if (!active) return;
-
-        setFichas(Array.isArray(json.data) ? json.data : []);
-      } catch (err) {
-        console.error(err);
-        if (active) {
-          setError("Não foi possível carregar as fichas.");
-          setFichas([]);
+        if (isMounted) {
+          setFichas(Array.isArray(json.data) ? json.data : []);
         }
-      } finally {
-        if (active) setLoading(false);
+      }
+
+      // 🏷️ TÍTULOS
+      if (titulosRes.status === "fulfilled") {
+        const { data, error } = titulosRes.value;
+
+        if (error) {
+          console.error("Erro ao buscar títulos:", error);
+        } else if (isMounted) {
+          setTitulosList(data || []);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+
+      if (isMounted) {
+        setError("Não foi possível carregar os dados.");
+        setFichas([]);
+      }
+    } finally {
+      if (isMounted) {
+        setLoading(false);
       }
     }
+  }
 
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
+  loadData();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   /* ─────────────────────────────────────────────
      🔍 FILTRO
@@ -400,6 +434,35 @@ export default function MembrosPage() {
                   onChange={(e) => setEditText(e.target.value)}
                   className="w-full h-[50vh] sm:h-[60vh]"
                 />
+
+                {/* SELECT DE TÍTULOS */}
+                <select
+                    value={selected.titulos?.id || ""}
+                    onChange={(e) => {
+                      const id = e.target.value;
+  
+                      const t = titulosList.find((x) => x.id === id);
+  
+                          setSelected((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  titulos: t
+                                    ? { id: t.id, titulo: t.titulo }
+                                    : undefined,
+                                }
+                              : prev
+                          );
+                        }}
+                        className="w-full mb-3 p-2 border rounded"
+                      >
+                        <option value="">Sem título</option>
+                        {titulosList.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.titulo}
+                          </option>
+                        ))}
+                    </select>
 
                 {/* 🔥 BOTÃO DESVINCULAR */}
               <button
