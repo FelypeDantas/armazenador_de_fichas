@@ -241,6 +241,11 @@ export default function MembrosPage() {
                     {extractFirstLine(ficha.conteudo)}
                   </p>
 
+                   {/* 🏷️ SUBTÍTULO */}
+                        <p className="font-bold text-xs text-zinc-500 dark:text-zinc-100 mb-2">
+                          {ficha.titulos?.titulo || "Sem título"}
+                        </p>
+
                   {/* 🔥 resto da ficha */}
                   <div className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words">
                     {ficha.conteudo.split("\n").map((line, idx) => {
@@ -308,7 +313,7 @@ export default function MembrosPage() {
         )}
 
         {/* EMPTY */}
-        {!loading && filtered.length === 0 && (
+        {!loading && Object.keys(grouped).length === 0 && (
           <div className="mt-8 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl p-6 text-center text-gray-500">
             {search
               ? "Nenhuma ficha corresponde à busca."
@@ -389,6 +394,18 @@ export default function MembrosPage() {
                   onChange={(e) => setEditText(e.target.value)}
                   className="w-full h-[50vh] sm:h-[60vh]"
                 />
+
+                {/* 🔥 BOTÃO DESVINCULAR */}
+              <button
+                onClick={() =>
+                  setSelected((prev) =>
+                    prev ? { ...prev, titulos: undefined } : prev
+                  )
+                }
+                className="mt-2 text-xs text-red-500"
+              >
+                Remover título
+              </button>
 
                 <button
                   onClick={handleUpdate}
