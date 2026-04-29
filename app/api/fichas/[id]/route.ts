@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 type Body = {
   conteudo?: unknown;
+  titulo_id?: string | null; // ✅ NOVO
 };
 
 // ✏️ UPDATE
@@ -16,7 +17,7 @@ export async function PUT(
       return Response.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const supabase =await createSupabaseServerClient(); // 👑
+    const supabase = await createSupabaseServerClient();
 
     let body: Body;
 
@@ -41,11 +42,41 @@ export async function PUT(
       );
     }
 
+    const titulo_id =
+      typeof body.titulo_id === "string" && body.titulo_id
+        ? body.titulo_id
+        : null;
+
+    /* 🛡️ valida se o título existe (somente se vier) */
+    if (titulo_id) {
+      const { data: tituloExiste, error: tituloError } = await supabase
+        .from("titulos")
+        .select("id")
+        .eq("id", titulo_id)
+        .single();
+
+      if (tituloError || !tituloExiste) {
+        return Response.json(
+          { error: "Título inválido" },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from("fichas")
-      .update({ conteudo })
+      .update({
+        conteudo,
+        titulo_id, // ✅ NOVO
+      })
       .eq("id", id)
-      .select()
+      .select(`
+        *,
+        titulos (
+          id,
+          titulo
+        )
+      `) // ✅ já retorna com título
       .single();
 
     if (error) {
@@ -75,13 +106,13 @@ export async function PUT(
   }
 }
 
-// 🗑️ DELETE
+// 🗑️ DELETE (inalterado)
 export async function DELETE(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params; // 👈 AQUI É A CHAVE
+    const { id } = await context.params;
 
     console.log("DELETE ID:", id);
 
@@ -92,7 +123,7 @@ export async function DELETE(
       );
     }
 
-    const supabase =await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     const { data, error } = await supabase
       .from("fichas")
