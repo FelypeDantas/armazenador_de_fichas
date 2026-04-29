@@ -1,7 +1,3 @@
-vc consegue refatorar sem tirar nada do que já existe e me entregar o arquivo completo?
-
-Lembrando também que uma pessoa pode perder o título, então é bom que dê para desvincular a ficha do título
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
