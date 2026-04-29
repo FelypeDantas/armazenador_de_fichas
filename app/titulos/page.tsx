@@ -39,9 +39,18 @@ export default function TitulosPage() {
   setLoading(true);
 
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
     const { data, error } = await supabase
       .from("titulos")
-      .insert([form])
+      .insert([
+        {
+          ...form,
+          user_id: user?.id || null,
+        },
+      ])
       .select();
 
     if (error) {
