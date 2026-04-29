@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Trash2,
   Pencil,
+  Heading
 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ const links = [
   { name: "Grade", href: "/grade", icon: Settings },
   { name: "Admin", href: "/admin", icon: ClipboardList },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Títulos", href: "/titulos", icon: Heading },
 ];
 
 /* ─────────────────────────────
