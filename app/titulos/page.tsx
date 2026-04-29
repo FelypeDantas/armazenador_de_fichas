@@ -35,19 +35,30 @@ export default function TitulosPage() {
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    const { error } = await supabase.from("titulos").insert([form]);
+  try {
+    const { data, error } = await supabase
+      .from("titulos")
+      .insert([form])
+      .select();
 
-    if (!error) {
-      setForm(defaultTitulo);
-      fetchTitulos();
+    if (error) {
+      console.error("Erro ao salvar título:", error);
+      alert(error.message);
+      return;
     }
 
+    setForm(defaultTitulo);
+    fetchTitulos();
+  } catch (err) {
+    console.error("Erro inesperado:", err);
+    alert("Erro inesperado ao salvar");
+  } finally {
     setLoading(false);
   }
-
+}
   async function handleDelete(id: string) {
     await supabase.from("titulos").delete().eq("id", id);
     fetchTitulos();
