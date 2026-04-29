@@ -101,13 +101,37 @@ export default function MembrosPage() {
   /* ─────────────────────────────────────────────
      🔍 FILTRO
   ───────────────────────────────────────────── */
-  const filtered = useMemo(() => {
+   const grouped = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return fichas;
 
-    return fichas.filter((f) =>
-      f.conteudo.toLowerCase().includes(q)
+    let base = fichas;
+
+    if (q) {
+      base = fichas.filter((f) =>
+        f.conteudo.toLowerCase().includes(q)
+      );
+    }
+
+    const sorted = [...base].sort((a, b) =>
+      extractFirstLine(a.conteudo).localeCompare(
+        extractFirstLine(b.conteudo),
+        "pt-BR"
+      )
     );
+
+    const groups: Record<string, Ficha[]> = {};
+
+    for (const ficha of sorted) {
+      const titulo = ficha.titulos?.titulo || "Sem título";
+
+      if (!groups[titulo]) {
+        groups[titulo] = [];
+      }
+
+      groups[titulo].push(ficha);
+    }
+
+    return groups;
   }, [search, fichas]);
 
   /* ─────────────────────────────────────────────
