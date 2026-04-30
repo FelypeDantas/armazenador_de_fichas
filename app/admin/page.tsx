@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 
@@ -36,64 +36,76 @@ export default function AdminPage() {
   const [status, setStatus] = useState<string | null>(null);
 
   /* ─────────────────────────────
+     HELPERS
+  ───────────────────────────── */
+
+  const setError = (msg: string, err?: unknown) => {
+    console.error(err);
+    setStatus(msg);
+  };
+
+  /* ─────────────────────────────
      LOAD OR CREATE
   ───────────────────────────── */
 
-  const loadOrCreate = async (u: User) => {
+  const loadOrCreate = useCallback(async (u: User) => {
     setUser(u);
 
-    const { data, error } = await supabase
-      .from("admin_textos")
-      .select("*")
-      .eq("user_id", u.id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("admin_textos")
+        .select("*")
+        .eq("user_id", u.id)
+        .maybeSingle();
 
-    if (error) {
-      console.error(error);
-      setStatus("❌ Erro ao carregar dados");
-      return;
+      if (error) throw error;
+
+      if (data) {
+        setTextos(data);
+        return;
+      }
+
+      const { data: created, error: insertError } = await supabase
+        .from("admin_textos")
+        .insert({
+          user_id: u.id,
+          ...defaultTextos,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      setTextos(created ?? defaultTextos);
+    } catch (err) {
+      setError("❌ Erro ao carregar/inicializar dados", err);
     }
-
-    if (data) {
-      setTextos(data);
-      return;
-    }
-
-    const { data: created, error: insertError } = await supabase
-      .from("admin_textos")
-      .insert({
-        user_id: u.id,
-        ...defaultTextos,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error(insertError);
-      setStatus("❌ Erro ao inicializar dados");
-      return;
-    }
-
-    setTextos(created ?? defaultTextos);
-  };
+  }, []);
 
   /* ─────────────────────────────
      INIT + AUTH LISTENER
   ───────────────────────────── */
 
   useEffect(() => {
-    let alive = true;
+    let mounted = true;
 
     const init = async () => {
-      const { data } = await supabase.auth.getUser();
-      const u = data?.user;
+      try {
+        const { data } = await supabase.auth.getUser();
+        const u = data?.user;
 
-      if (!alive) return;
+        if (!mounted) return;
 
-      if (u) await loadOrCreate(u);
-      else setStatus("⚠️ Usuário não autenticado");
-
-      setLoading(false);
+        if (u) {
+          await loadOrCreate(u);
+        } else {
+          setStatus("⚠️ Usuário não autenticado");
+        }
+      } catch (err) {
+        setError("❌ Falha ao iniciar sessão", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
 
     init();
@@ -102,27 +114,31 @@ export default function AdminPage() {
       async (_event, session) => {
         const u = session?.user;
 
-        if (u) await loadOrCreate(u);
-        else {
+        if (!mounted) return;
+
+        if (u) {
+          await loadOrCreate(u);
+        } else {
           setUser(null);
+          setTextos(defaultTextos);
           setStatus("⚠️ Sessão encerrada");
         }
       }
     );
 
     return () => {
-      alive = false;
+      mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [loadOrCreate]);
 
   /* ─────────────────────────────
      ACTIONS
   ───────────────────────────── */
 
-  const atualizar = (campo: keyof Textos, valor: string) => {
+  const atualizar = useCallback((campo: keyof Textos, valor: string) => {
     setTextos((prev) => ({ ...prev, [campo]: valor }));
-  };
+  }, []);
 
   const salvar = async () => {
     if (!user) return;
@@ -143,8 +159,7 @@ export default function AdminPage() {
 
       setStatus("✅ Alterações salvas com sucesso");
     } catch (err) {
-      console.error(err);
-      setStatus("❌ Falha ao salvar");
+      setError("❌ Falha ao salvar", err);
     } finally {
       setSaving(false);
     }
@@ -153,7 +168,7 @@ export default function AdminPage() {
   const copiar = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      setStatus("📋 Copiado para área de transferência");
+      setStatus("📋 Copiado!");
     } catch {
       setStatus("❌ Não foi possível copiar");
     }
@@ -178,7 +193,6 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10 max-w-6xl mx-auto space-y-8">
 
-      {/* HEADER */}
       <header className="space-y-1">
         <h1 className="text-3xl font-bold">👑 Painel Administrativo</h1>
         <p className="text-sm text-zinc-400">
@@ -186,14 +200,12 @@ export default function AdminPage() {
         </p>
       </header>
 
-      {/* STATUS */}
       {status && (
         <div className="bg-white/5 border border-white/10 text-zinc-300 px-4 py-2 rounded-xl text-sm">
           {status}
         </div>
       )}
 
-      {/* GRID */}
       <section className="grid md:grid-cols-2 gap-6">
         <Field title="🌹 Apresentação" value={textos.apresentacao} onChange={(v) => atualizar("apresentacao", v)} onCopy={() => copiar(textos.apresentacao)} />
         <Field title="🍀 Feedback" value={textos.ficha_feedback} onChange={(v) => atualizar("ficha_feedback", v)} onCopy={() => copiar(textos.ficha_feedback)} />
@@ -201,7 +213,6 @@ export default function AdminPage() {
         <Field title="📌 Observações" value={textos.observacoes} onChange={(v) => atualizar("observacoes", v)} onCopy={() => copiar(textos.observacoes)} />
       </section>
 
-      {/* SAVE */}
       <button
         onClick={salvar}
         disabled={saving}
