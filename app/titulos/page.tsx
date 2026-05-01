@@ -13,6 +13,11 @@ type Titulo = {
   descricao: string;
 };
 
+type Status = {
+  type: "success" | "error" | "info";
+  message: string;
+} | null;
+
 const defaultTitulo: Titulo = {
   titulo: "",
   descricao: "",
@@ -24,19 +29,23 @@ const defaultTitulo: Titulo = {
 
 export default function TitulosPage() {
   const [titulos, setTitulos] = useState<Titulo[]>([]);
-  const [form, setForm] = useState<Titulo>(defaultTitulo);
+  const [form, setForm] = useState(defaultTitulo);
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(null);
 
   /* ─────────────────────────────
      HELPERS
   ───────────────────────────── */
 
-  const setError = (msg: string, err?: unknown) => {
+  const setError = (message: string, err?: unknown) => {
     console.error(err);
-    setStatus(msg);
+    setStatus({ type: "error", message });
+  };
+
+  const setSuccess = (message: string) => {
+    setStatus({ type: "success", message });
   };
 
   const resetStatus = () => setStatus(null);
@@ -58,7 +67,7 @@ export default function TitulosPage() {
 
       setTitulos(data ?? []);
     } catch (err) {
-      setError("❌ Erro ao carregar títulos", err);
+      setError("Erro ao carregar títulos", err);
     } finally {
       setFetching(false);
     }
@@ -73,9 +82,15 @@ export default function TitulosPage() {
   ───────────────────────────── */
 
   const handleChange = useCallback(
-    (field: keyof Titulo, value: string) => {
-      setForm((prev) => ({ ...prev, [field]: value }));
-    },
+    (field: keyof Titulo) =>
+      (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const value = e.target.value;
+
+        setForm((prev) => ({
+          ...prev,
+          [field]: value,
+        }));
+      },
     []
   );
 
@@ -83,8 +98,11 @@ export default function TitulosPage() {
     e.preventDefault();
     resetStatus();
 
-    if (!form.titulo.trim()) {
-      setStatus("⚠️ O título é obrigatório");
+    const titulo = form.titulo.trim();
+    const descricao = form.descricao.trim();
+
+    if (!titulo) {
+      setStatus({ type: "info", message: "O título é obrigatório" });
       return;
     }
 
@@ -95,28 +113,34 @@ export default function TitulosPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      const { error } = await supabase.from("titulos").insert({
-        titulo: form.titulo.trim(),
-        descricao: form.descricao.trim(),
-        user_id: user?.id ?? null,
-      });
+      const { data, error } = await supabase
+        .from("titulos")
+        .insert({
+          titulo,
+          descricao,
+          user_id: user?.id ?? null,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
+      setTitulos((prev) => [data, ...prev]); // 🚀 otimista
       setForm(defaultTitulo);
-      setStatus("✅ Título criado com sucesso");
-
-      fetchTitulos();
+      setSuccess("Título criado com sucesso");
     } catch (err) {
-      setError("❌ Erro ao salvar título", err);
+      setError("Erro ao salvar título", err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    const previous = titulos;
+
     try {
-      setStatus(null);
+      // 🚀 remoção otimista
+      setTitulos((prev) => prev.filter((t) => t.id !== id));
 
       const { error } = await supabase
         .from("titulos")
@@ -125,10 +149,10 @@ export default function TitulosPage() {
 
       if (error) throw error;
 
-      setTitulos((prev) => prev.filter((t) => t.id !== id));
-      setStatus("🗑️ Título removido");
+      setSuccess("Título removido");
     } catch (err) {
-      setError("❌ Erro ao excluir título", err);
+      setTitulos(previous); // rollback
+      setError("Erro ao excluir título", err);
     }
   };
 
@@ -149,8 +173,17 @@ export default function TitulosPage() {
 
       {/* STATUS */}
       {status && (
-        <div className="bg-white/5 border border-white/10 px-4 py-2 rounded text-sm">
-          {status}
+        <div
+          className={`px-4 py-2 rounded text-sm border
+            ${
+              status.type === "error"
+                ? "bg-red-500/10 border-red-500 text-red-300"
+                : status.type === "success"
+                ? "bg-green-500/10 border-green-500 text-green-300"
+                : "bg-yellow-500/10 border-yellow-500 text-yellow-300"
+            }`}
+        >
+          {status.message}
         </div>
       )}
 
@@ -161,14 +194,14 @@ export default function TitulosPage() {
           type="text"
           placeholder="Título"
           value={form.titulo}
-          onChange={(e) => handleChange("titulo", e.target.value)}
+          onChange={handleChange("titulo")}
           className="w-full p-3 rounded bg-zinc-900 border border-zinc-700"
         />
 
         <textarea
           placeholder="Descrição"
           value={form.descricao}
-          onChange={(e) => handleChange("descricao", e.target.value)}
+          onChange={handleChange("descricao")}
           className="w-full p-3 rounded bg-zinc-900 border border-zinc-700"
         />
 
