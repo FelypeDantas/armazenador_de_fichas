@@ -44,14 +44,19 @@ export default function AdminPage() {
     setStatus(msg);
   };
 
+  const resetState = () => {
+    setUser(null);
+    setTextos(defaultTextos);
+  };
+
   /* ─────────────────────────────
-     LOAD OR CREATE
+     LOAD / CREATE
   ───────────────────────────── */
 
   const loadOrCreate = useCallback(async (u: User) => {
-    setUser(u);
-
     try {
+      setUser(u);
+
       const { data, error } = await supabase
         .from("admin_textos")
         .select("*")
@@ -78,12 +83,12 @@ export default function AdminPage() {
 
       setTextos(created ?? defaultTextos);
     } catch (err) {
-      setError("❌ Erro ao carregar/inicializar dados", err);
+      setError("❌ Erro ao carregar dados", err);
     }
   }, []);
 
   /* ─────────────────────────────
-     INIT + AUTH LISTENER
+     INIT + AUTH
   ───────────────────────────── */
 
   useEffect(() => {
@@ -112,15 +117,14 @@ export default function AdminPage() {
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        const u = session?.user;
-
         if (!mounted) return;
+
+        const u = session?.user;
 
         if (u) {
           await loadOrCreate(u);
         } else {
-          setUser(null);
-          setTextos(defaultTextos);
+          resetState();
           setStatus("⚠️ Sessão encerrada");
         }
       }
@@ -140,7 +144,7 @@ export default function AdminPage() {
     setTextos((prev) => ({ ...prev, [campo]: valor }));
   }, []);
 
-  const salvar = async () => {
+  const salvar = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -157,22 +161,22 @@ export default function AdminPage() {
 
       if (error) throw error;
 
-      setStatus("✅ Alterações salvas com sucesso");
+      setStatus("✅ Salvo com sucesso");
     } catch (err) {
       setError("❌ Falha ao salvar", err);
     } finally {
       setSaving(false);
     }
-  };
+  }, [textos, user]);
 
-  const copiar = async (value: string) => {
+  const copiar = useCallback(async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
       setStatus("📋 Copiado!");
     } catch {
-      setStatus("❌ Não foi possível copiar");
+      setStatus("❌ Erro ao copiar");
     }
-  };
+  }, []);
 
   /* ─────────────────────────────
      LOADING
@@ -181,7 +185,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-400">
-        Carregando painel administrativo...
+        Carregando painel...
       </div>
     );
   }
@@ -193,18 +197,9 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10 max-w-6xl mx-auto space-y-8">
 
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold">👑 Painel Administrativo</h1>
-        <p className="text-sm text-zinc-400">
-          Gerencie os textos do sistema em tempo real
-        </p>
-      </header>
+      <Header />
 
-      {status && (
-        <div className="bg-white/5 border border-white/10 text-zinc-300 px-4 py-2 rounded-xl text-sm">
-          {status}
-        </div>
-      )}
+      {status && <Status message={status} />}
 
       <section className="grid md:grid-cols-2 gap-6">
         <Field title="🌹 Apresentação" value={textos.apresentacao} onChange={(v) => atualizar("apresentacao", v)} onCopy={() => copiar(textos.apresentacao)} />
@@ -225,8 +220,27 @@ export default function AdminPage() {
 }
 
 /* ─────────────────────────────
-   FIELD COMPONENT
+   SUB COMPONENTS
 ──────────────────────────── */
+
+function Header() {
+  return (
+    <header className="space-y-1">
+      <h1 className="text-3xl font-bold">👑 Painel Administrativo</h1>
+      <p className="text-sm text-zinc-400">
+        Gerencie os textos do sistema
+      </p>
+    </header>
+  );
+}
+
+function Status({ message }: { message: string }) {
+  return (
+    <div className="bg-white/5 border border-white/10 text-zinc-300 px-4 py-2 rounded-xl text-sm">
+      {message}
+    </div>
+  );
+}
 
 function Field({
   title,
