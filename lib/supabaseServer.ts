@@ -15,15 +15,21 @@ export function createSupabaseServerClient() {
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll: () => cookieStore.getAll(),
+      get: (name) => cookieStore.get(name)?.value,
 
-      setAll: (cookiesToSet) => {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set({
-            name,
-            value,
-            ...options,
-          });
+      set: (name, value, options) => {
+        cookieStore.set({
+          name,
+          value,
+          ...options,
+        });
+      },
+
+      remove: (name, options) => {
+        cookieStore.set({
+          name,
+          value: "",
+          ...options,
         });
       },
     },
