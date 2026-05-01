@@ -1,15 +1,54 @@
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
+/* ─────────────────────────────────────────────
+   TYPES
+───────────────────────────────────────────── */
+
 type Body = {
   conteudo?: unknown;
-  titulo_id?: string | null; // ✅ NOVO
+  titulo_id?: string | null;
 };
 
-// ✏️ UPDATE
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
+type Params = {
+  params: Promise<{ id: string }>;
+};
+
+/* ─────────────────────────────────────────────
+   🧪 VALIDADORES
+───────────────────────────────────────────── */
+
+function validarConteudo(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  const texto = value.trim();
+
+  if (!texto) return null;
+  if (texto.length < 3) return "Ficha muito curta";
+  if (texto.length > 10000) return "Ficha muito grande";
+
+  return texto;
+}
+
+async function validarTitulo(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  titulo_id: string | null
 ) {
+  if (!titulo_id) return true;
+
+  const { data, error } = await supabase
+    .from("titulos")
+    .select("id")
+    .eq("id", titulo_id)
+    .maybeSingle();
+
+  return !error && !!data;
+}
+
+/* ─────────────────────────────────────────────
+   ✏️ UPDATE
+───────────────────────────────────────────── */
+
+export async function PUT(req: Request, { params }: Params) {
   try {
     const { id } = await params;
 
@@ -30,44 +69,41 @@ export async function PUT(
       );
     }
 
-    const conteudo =
-      typeof body.conteudo === "string"
-        ? body.conteudo.trim()
-        : "";
+    /* 🧠 valida conteúdo */
+    const conteudo = validarConteudo(body.conteudo);
 
     if (!conteudo) {
       return Response.json(
-        { error: "Conteúdo obrigatório" },
+        { error: "Conteúdo é obrigatório" },
         { status: 400 }
       );
     }
 
+    if (conteudo === "Ficha muito curta" || conteudo === "Ficha muito grande") {
+      return Response.json({ error: conteudo }, { status: 400 });
+    }
+
+    /* 🎯 trata título */
     const titulo_id =
       typeof body.titulo_id === "string" && body.titulo_id
         ? body.titulo_id
         : null;
 
-    /* 🛡️ valida se o título existe (somente se vier) */
-    if (titulo_id) {
-      const { data: tituloExiste, error: tituloError } = await supabase
-        .from("titulos")
-        .select("id")
-        .eq("id", titulo_id)
-        .single();
+    const tituloValido = await validarTitulo(supabase, titulo_id);
 
-      if (tituloError || !tituloExiste) {
-        return Response.json(
-          { error: "Título inválido" },
-          { status: 400 }
-        );
-      }
+    if (!tituloValido) {
+      return Response.json(
+        { error: "Título inválido" },
+        { status: 400 }
+      );
     }
 
+    /* 💾 update */
     const { data, error } = await supabase
       .from("fichas")
       .update({
         conteudo,
-        titulo_id, // ✅ NOVO
+        titulo_id,
       })
       .eq("id", id)
       .select(`
@@ -76,7 +112,7 @@ export async function PUT(
           id,
           titulo
         )
-      `) // ✅ já retorna com título
+      `)
       .single();
 
     if (error) {
@@ -97,24 +133,25 @@ export async function PUT(
     });
 
   } catch (err) {
-    console.error("PUT error:", err);
+    console.error("PUT fatal:", err);
 
     return Response.json(
-      { error: "Erro interno" },
+      { error: "Erro interno no servidor" },
       { status: 500 }
     );
   }
 }
 
-// 🗑️ DELETE (inalterado)
+/* ─────────────────────────────────────────────
+   🗑️ DELETE
+───────────────────────────────────────────── */
+
 export async function DELETE(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
+  _req: Request,
+  { params }: Params
 ) {
   try {
-    const { id } = await context.params;
-
-    console.log("DELETE ID:", id);
+    const { id } = await params;
 
     if (!id) {
       return Response.json(
@@ -152,14 +189,14 @@ export async function DELETE(
 
     return Response.json({
       success: true,
-      deleted: data,
+      deleted: data[0],
     });
 
   } catch (err) {
     console.error("DELETE fatal:", err);
 
     return Response.json(
-      { error: "Erro interno" },
+      { error: "Erro interno no servidor" },
       { status: 500 }
     );
   }
