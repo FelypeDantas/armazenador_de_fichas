@@ -1,29 +1,38 @@
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
+/* ─────────────────────────────
+   TYPES
+──────────────────────────── */
+
 type Body = {
   conteudo?: unknown;
   criado_por?: string | null;
   titulo_id?: string | null;
 };
 
-/* ─────────────────────────────────────────────
-   🧪 VALIDADORES
-───────────────────────────────────────────── */
-function validarConteudo(value: unknown) {
+/* ─────────────────────────────
+   HELPERS
+──────────────────────────── */
+
+const json = (data: unknown, status = 200) =>
+  Response.json(data, { status });
+
+function validarConteudo(value: unknown): string | null {
   if (typeof value !== "string") return null;
 
   const texto = value.trim();
 
   if (!texto) return null;
-  if (texto.length < 3) return "Ficha muito curta";
-  if (texto.length > 10000) return "Ficha muito grande";
+  if (texto.length < 3) throw new Error("Ficha muito curta");
+  if (texto.length > 10000) throw new Error("Ficha muito grande");
 
   return texto;
 }
 
-/* ─────────────────────────────────────────────
-   📥 GET → listar fichas (COM TÍTULO)
-───────────────────────────────────────────── */
+/* ─────────────────────────────
+   GET → listar fichas
+──────────────────────────── */
+
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
@@ -40,34 +49,25 @@ export async function GET() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("GET fichas error:", error);
-
-      return Response.json(
-        {
-          error: "Erro ao buscar fichas",
-          details: error.message,
-        },
-        { status: 400 }
+      console.error("GET fichas:", error);
+      return json(
+        { error: "Erro ao buscar fichas", details: error.message },
+        400
       );
     }
 
-    return Response.json({
-      success: true,
-      data: data ?? [],
-    });
-  } catch (error) {
-    console.error("GET fatal error:", error);
+    return json({ success: true, data: data ?? [] });
 
-    return Response.json(
-      { error: "Erro interno no servidor" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("GET fatal:", err);
+    return json({ error: "Erro interno no servidor" }, 500);
   }
 }
 
-/* ─────────────────────────────────────────────
-   📤 POST → criar ficha (COM título opcional)
-───────────────────────────────────────────── */
+/* ─────────────────────────────
+   POST → criar ficha
+──────────────────────────── */
+
 export async function POST(req: Request) {
   try {
     let body: Body;
@@ -75,63 +75,55 @@ export async function POST(req: Request) {
     try {
       body = await req.json();
     } catch {
-      return Response.json(
-        { error: "JSON inválido" },
-        { status: 400 }
-      );
+      return json({ error: "JSON inválido" }, 400);
     }
 
-    const conteudo = validarConteudo(body?.conteudo);
+    /* ─────────────────────────────
+       VALIDATION
+    ───────────────────────────── */
 
-    if (!conteudo) {
-      return Response.json(
-        { error: "Conteúdo é obrigatório" },
-        { status: 400 }
-      );
-    }
+    let conteudo: string;
 
-    if (typeof conteudo === "string" && conteudo.length < 3) {
-      return Response.json(
-        { error: "Ficha muito curta" },
-        { status: 400 }
-      );
-    }
-
-    if (typeof conteudo === "string" && conteudo.length > 10000) {
-      return Response.json(
-        { error: "Ficha muito grande" },
-        { status: 400 }
-      );
+    try {
+      const valid = validarConteudo(body.conteudo);
+      if (!valid) throw new Error("Conteúdo é obrigatório");
+      conteudo = valid;
+    } catch (err: any) {
+      return json({ error: err.message }, 400);
     }
 
     const titulo_id =
-      typeof body?.titulo_id === "string" && body.titulo_id
+      typeof body.titulo_id === "string" && body.titulo_id
         ? body.titulo_id
         : null;
 
     const supabase = await createSupabaseServerClient();
 
-    /* 🛡️ valida se o título existe */
+    /* ─────────────────────────────
+       VALIDAR TÍTULO
+    ───────────────────────────── */
+
     if (titulo_id) {
-      const { data: tituloExiste, error: tituloError } = await supabase
+      const { data, error } = await supabase
         .from("titulos")
         .select("id")
         .eq("id", titulo_id)
-        .single();
+        .maybeSingle();
 
-      if (tituloError || !tituloExiste) {
-        return Response.json(
-          { error: "Título inválido" },
-          { status: 400 }
-        );
+      if (error || !data) {
+        return json({ error: "Título inválido" }, 400);
       }
     }
+
+    /* ─────────────────────────────
+       INSERT
+    ───────────────────────────── */
 
     const { data, error } = await supabase
       .from("fichas")
       .insert({
         conteudo,
-        criado_por: body?.criado_por ?? null,
+        criado_por: body.criado_por ?? null,
         titulo_id,
       })
       .select(`
@@ -144,27 +136,17 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      console.error("POST fichas error:", error);
-
-      return Response.json(
-        {
-          error: "Erro ao salvar no banco",
-          details: error.message,
-        },
-        { status: 400 }
+      console.error("POST fichas:", error);
+      return json(
+        { error: "Erro ao salvar no banco", details: error.message },
+        400
       );
     }
 
-    return Response.json({
-      success: true,
-      data,
-    });
-  } catch (error) {
-    console.error("POST fatal error:", error);
+    return json({ success: true, data });
 
-    return Response.json(
-      { error: "Erro interno no servidor" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("POST fatal:", err);
+    return json({ error: "Erro interno no servidor" }, 500);
   }
 }
