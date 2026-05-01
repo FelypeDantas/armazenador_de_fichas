@@ -13,6 +13,19 @@ type FormData = {
   confirmarSenha: string;
 };
 
+type InputProps = {
+  label: string;
+  name: keyof FormData;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+};
+
+type PasswordInputProps = InputProps & {
+  show: boolean;
+  onToggle: () => void;
+};
+
 const defaultForm: FormData = {
   nome: "",
   email: "",
@@ -54,15 +67,18 @@ export default function Cadastro() {
         ...prev,
         [name]: value,
       }));
+
+      // 🧠 remove erro ao digitar (UX melhor)
+      if (erro) setErro(null);
     },
-    []
+    [erro]
   );
 
   /* ─────────────────────────────
      VALIDATION
   ───────────────────────────── */
 
-  const validate = () => {
+  const validate = (): string | null => {
     if (!form.nome || !form.email || !form.senha) {
       return "Preencha todos os campos.";
     }
@@ -77,6 +93,13 @@ export default function Cadastro() {
 
     return null;
   };
+
+  const isDisabled =
+    loading ||
+    !form.nome ||
+    !form.email ||
+    !form.senha ||
+    !form.confirmarSenha;
 
   /* ─────────────────────────────
      SUBMIT
@@ -129,7 +152,7 @@ export default function Cadastro() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden px-4">
 
-      {/* 🌌 Background glow */}
+      {/* Glow */}
       <div className="absolute w-[500px] h-[500px] bg-rose-600/20 blur-[120px] rounded-full top-[-100px] left-[-100px]" />
       <div className="absolute w-[400px] h-[400px] bg-purple-600/20 blur-[120px] rounded-full bottom-[-100px] right-[-100px]" />
 
@@ -139,30 +162,11 @@ export default function Cadastro() {
 
         <div className="relative bg-zinc-900/70 backdrop-blur-xl border border-white/10 rounded-2xl p-8 space-y-6 shadow-xl">
 
-          {/* HEADER */}
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-semibold text-white">
-              Criar conta
-            </h1>
-            <p className="text-zinc-400 text-sm">
-              Comece sua jornada no sistema
-            </p>
-          </div>
+          <Header />
 
-          {/* FEEDBACK */}
-          {erro && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-lg">
-              {erro}
-            </div>
-          )}
+          {erro && <Feedback type="error" message={erro} />}
+          {sucesso && <Feedback type="success" message={sucesso} />}
 
-          {sucesso && (
-            <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm p-3 rounded-lg">
-              {sucesso}
-            </div>
-          )}
-
-          {/* FORM */}
           <form onSubmit={handleSubmit} className="space-y-5">
 
             <Input label="Nome" name="nome" value={form.nome} onChange={handleChange} />
@@ -173,7 +177,7 @@ export default function Cadastro() {
               name="senha"
               value={form.senha}
               show={showPassword}
-              onToggle={() => setShowPassword((prev) => !prev)}
+              onToggle={() => setShowPassword((p) => !p)}
               onChange={handleChange}
             />
 
@@ -187,7 +191,7 @@ export default function Cadastro() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isDisabled}
               className="w-full rounded-lg py-2.5 font-medium text-white
               bg-gradient-to-r from-rose-600 to-purple-600
               hover:brightness-110 active:scale-[0.98]
@@ -197,12 +201,8 @@ export default function Cadastro() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-zinc-500">
-            Já tem conta?{" "}
-            <a href="/login" className="text-rose-400 hover:text-rose-300">
-              Entrar
-            </a>
-          </p>
+          <Footer />
+
         </div>
       </div>
     </div>
@@ -210,16 +210,47 @@ export default function Cadastro() {
 }
 
 /* ─────────────────────────────
-   INPUT COMPONENT
+   SUB COMPONENTS
 ──────────────────────────── */
 
-function Input({
-  label,
-  name,
-  value,
-  onChange,
-  type = "text",
-}: any) {
+function Header() {
+  return (
+    <div className="text-center space-y-2">
+      <h1 className="text-3xl font-semibold text-white">
+        Criar conta
+      </h1>
+      <p className="text-zinc-400 text-sm">
+        Comece sua jornada no sistema
+      </p>
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <p className="text-center text-sm text-zinc-500">
+      Já tem conta?{" "}
+      <a href="/login" className="text-rose-400 hover:text-rose-300">
+        Entrar
+      </a>
+    </p>
+  );
+}
+
+function Feedback({ type, message }: { type: "error" | "success"; message: string }) {
+  const styles =
+    type === "error"
+      ? "bg-red-500/10 border-red-500/30 text-red-400"
+      : "bg-green-500/10 border-green-500/30 text-green-400";
+
+  return (
+    <div className={`border text-sm p-3 rounded-lg ${styles}`}>
+      {message}
+    </div>
+  );
+}
+
+function Input({ label, name, value, onChange, type = "text" }: InputProps) {
   return (
     <div className="space-y-1">
       <label className="text-xs text-zinc-400 uppercase tracking-wider">
@@ -236,10 +267,6 @@ function Input({
   );
 }
 
-/* ─────────────────────────────
-   PASSWORD INPUT
-──────────────────────────── */
-
 function PasswordInput({
   label,
   name,
@@ -247,7 +274,7 @@ function PasswordInput({
   show,
   onToggle,
   onChange,
-}: any) {
+}: PasswordInputProps) {
   return (
     <div className="space-y-1 relative">
       <label className="text-xs text-zinc-400 uppercase tracking-wider">
