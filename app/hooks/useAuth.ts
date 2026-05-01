@@ -2,22 +2,28 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
-
-const supabase = await createSupabaseServerClient();
+import { supabase } from "@/lib/supabaseClient";
 
 export function useAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    async function checkUser() {
+    let mounted = true;
+
+    const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
 
+      if (!mounted) return;
+
       if (!data.user) {
-        router.push("/login");
+        router.replace("/login"); // 👈 melhor que push
       }
-    }
+    };
 
     checkUser();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 }
