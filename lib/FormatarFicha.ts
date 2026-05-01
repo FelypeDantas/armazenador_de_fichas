@@ -10,20 +10,26 @@ export function formatarParaWhatsApp(text: string) {
 
       const isQtdPalavras = /quantidade de palavras/i.test(line);
 
-      // 🔥 mantém linha inteira em negrito
       if (isQtdPalavras) {
         return `*${line.trim()}*`;
       }
 
       const indexColon = line.indexOf(":");
 
-      // sem ":" → retorna normal
       if (indexColon === -1) {
         return line;
       }
 
       const key = line.slice(0, indexColon).trim();
       const value = line.slice(indexColon + 1).trim();
+
+      // 🧠 DETECTA LINK
+      const isLink = /^https?:\/\/\S+$/i.test(value);
+
+      // 🔗 Se for link → NÃO aplica formatação no valor
+      if (isLink) {
+        return `*${key}:*\n${value}`;
+      }
 
       return `*${key}:* ${value}`;
     })
