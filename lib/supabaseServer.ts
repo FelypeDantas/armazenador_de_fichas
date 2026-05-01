@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import type { RequestCookies } from "next/dist/compiled/@edge-runtime/cookies";
 
 function getEnv(name: string): string {
   const value = process.env[name];
@@ -9,7 +8,7 @@ function getEnv(name: string): string {
 }
 
 export function createSupabaseServerClient() {
-  const cookieStore = cookies() as unknown as RequestCookies;
+  const cookieStore = cookies();
 
   const supabaseUrl = getEnv("NEXT_PUBLIC_SUPABASE_URL");
   const supabaseAnonKey = getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
@@ -17,9 +16,14 @@ export function createSupabaseServerClient() {
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll: () => cookieStore.getAll(),
+
       setAll: (cookiesToSet) => {
         cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
+          cookieStore.set({
+            name,
+            value,
+            ...options,
+          });
         });
       },
     },
