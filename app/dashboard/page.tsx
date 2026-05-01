@@ -13,6 +13,12 @@ type Ficha = {
   created_at: string;
 };
 
+type Metrics = {
+  totalFichas: number;
+  fichasHoje: number;
+  totalPalavras: number;
+};
+
 /* ─────────────────────────────
    UTILS
 ──────────────────────────── */
@@ -22,6 +28,9 @@ const contarPalavras = (texto = "") =>
 
 const formatarData = (data: string) =>
   new Date(data).toLocaleDateString("pt-BR");
+
+const truncate = (text = "", size = 120) =>
+  text.length > size ? text.slice(0, size) + "..." : text;
 
 /* ─────────────────────────────
    HOOK (DATA)
@@ -35,6 +44,7 @@ function useFichas() {
   const fetchFichas = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("fichas")
@@ -60,17 +70,11 @@ function useFichas() {
 }
 
 /* ─────────────────────────────
-   PAGE
+   HOOK (DERIVED DATA)
 ──────────────────────────── */
 
-export default function Dashboard() {
-  const { fichas, loading, error } = useFichas();
-
-  /* ─────────────────────────────
-     METRICS
-  ───────────────────────────── */
-
-  const metrics = useMemo(() => {
+function useMetrics(fichas: Ficha[]) {
+  return useMemo<Metrics>(() => {
     const hoje = formatarData(new Date().toISOString());
 
     return fichas.reduce(
@@ -84,19 +88,13 @@ export default function Dashboard() {
 
         return acc;
       },
-      {
-        totalFichas: 0,
-        fichasHoje: 0,
-        totalPalavras: 0,
-      }
+      { totalFichas: 0, fichasHoje: 0, totalPalavras: 0 }
     );
   }, [fichas]);
+}
 
-  /* ─────────────────────────────
-     CHART DATA
-  ───────────────────────────── */
-
-  const fichasPorDia = useMemo(() => {
+function useChartData(fichas: Ficha[]) {
+  return useMemo(() => {
     const mapa = new Map<string, number>();
 
     fichas.forEach((f) => {
@@ -106,17 +104,20 @@ export default function Dashboard() {
 
     return Array.from(mapa.entries()).slice(-7);
   }, [fichas]);
+}
 
-  /* ─────────────────────────────
-     STATES
-  ───────────────────────────── */
+/* ─────────────────────────────
+   PAGE
+──────────────────────────── */
+
+export default function Dashboard() {
+  const { fichas, loading, error } = useFichas();
+
+  const metrics = useMetrics(fichas);
+  const chartData = useChartData(fichas);
 
   if (loading) return <Loading />;
   if (error) return <Error message={error} />;
-
-  /* ─────────────────────────────
-     RENDER
-  ───────────────────────────── */
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10 space-y-8">
@@ -129,7 +130,7 @@ export default function Dashboard() {
         <Card title="Palavras Totais" value={metrics.totalPalavras} />
       </section>
 
-      <Chart data={fichasPorDia} />
+      <Chart data={chartData} />
 
       <RecentList fichas={fichas} />
 
@@ -138,7 +139,7 @@ export default function Dashboard() {
 }
 
 /* ─────────────────────────────
-   SUB COMPONENTS
+   UI COMPONENTS
 ──────────────────────────── */
 
 function Header() {
@@ -216,8 +217,7 @@ function RecentList({ fichas }: { fichas: Ficha[] }) {
             key={f.id}
             className="p-3 rounded-xl bg-black/40 border border-white/10 text-sm text-zinc-300 hover:border-white/20 transition"
           >
-            {f.conteudo?.slice(0, 120) ?? "Sem conteúdo"}
-            {f.conteudo && f.conteudo.length > 120 ? "..." : ""}
+            {truncate(f.conteudo) || "Sem conteúdo"}
           </div>
         ))}
       </div>
