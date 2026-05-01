@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -35,7 +35,7 @@ interface Dia {
    CONSTANTS
 ──────────────────────────── */
 
-const GATILHOS = [
+const GATILHOS_SENSIVEIS = [
   "+18",
   "sexo",
   "sexual",
@@ -45,7 +45,7 @@ const GATILHOS = [
   "abuso",
 ];
 
-const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
+const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
 /* ─────────────────────────────
    UTILS
@@ -59,16 +59,19 @@ const criarGrade = (tamanho: number): Dia[] =>
     fichaId: null,
   }));
 
-const extrairTitulo = (conteudo = "") =>
-  conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
+const criarGradeNormal = () => criarGrade(6);
+const criarGradeEstendida = () => criarGrade(11);
 
 const detectarGatilhos = (texto: string) => {
   const t = texto.toLowerCase();
-  return GATILHOS.filter((g) => t.includes(g));
+  return GATILHOS_SENSIVEIS.filter((g) => t.includes(g));
 };
 
+const extrairTitulo = (conteudo: string = "") =>
+  conteudo.split("\n")[0].replace(/\*/g, "").slice(0, 60);
+
 /* ─────────────────────────────
-   SORTABLE ITEM
+   DRAG ITEM
 ──────────────────────────── */
 
 function SortableItem({
@@ -97,58 +100,46 @@ function SortableItem({
 }
 
 /* ─────────────────────────────
-   HOOK (DATA)
+   COMPONENT
 ──────────────────────────── */
 
-function useFichas() {
+export default function GradePage() {
+  const [nomeGrade, setNomeGrade] = useState("Vale de Poesias");
+  const [dias, setDias] = useState<Dia[]>(criarGradeNormal());
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [isExtendida, setIsExtendida] = useState(false);
+
+  /* ─────────────────────────────
+     FETCH
+  ───────────────────────────── */
 
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
 
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("fichas")
         .select("id, conteudo, deletado")
         .not("deletado", "eq", true);
 
-      if (mounted) {
-        setFichas(data ?? []);
-        setLoading(false);
-      }
+      if (!alive) return;
+
+      if (!error) setFichas(data ?? []);
+      setLoading(false);
     };
 
     load();
 
     return () => {
-      mounted = false;
+      alive = false;
     };
   }, []);
 
-  return { fichas, loading };
-}
-
-/* ─────────────────────────────
-   PAGE
-──────────────────────────── */
-
-export default function GradePage() {
-  const { fichas, loading } = useFichas();
-
-  const [nomeGrade, setNomeGrade] = useState("Vale de Poesias");
-  const [dias, setDias] = useState<Dia[]>(criarGrade(6));
-  const [busca, setBusca] = useState("");
-  const [extendida, setExtendida] = useState(false);
-
   /* ─────────────────────────────
-     DERIVED
-  ───────────────────────────── */
-
-  const fichasMap = useMemo(
-    () => new Map(fichas.map((f) => [f.id, f])),
-    [fichas]
-  );
+     DERIVED DATA
+──────────────────────────── */
 
   const fichasFiltradas = useMemo(() => {
     const q = busca.toLowerCase();
@@ -157,24 +148,28 @@ export default function GradePage() {
     );
   }, [busca, fichas]);
 
-  const alerta = useMemo(() => {
+  const fichasMap = useMemo(() => {
+    return new Map(fichas.map((f) => [f.id, f]));
+  }, [fichas]);
+
+  const alertaGatilhos = useMemo(() => {
     const conflitos: string[] = [];
 
     dias.forEach((dia, i) => {
-      const ficha = fichasMap.get(dia.fichaId || "");
+      const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
       if (!ficha) return;
 
       const gatilhos = detectarGatilhos(ficha.conteudo);
       if (!gatilhos.length) return;
 
       const nome =
-        i === dias.length - 1 ? "Obra Extra" : DIAS[i % 5];
+        i === dias.length - 1 ? "Obra Extra" : DIAS_SEMANA[i % 5];
 
       conflitos.push(`${nome} (${gatilhos.join(", ")})`);
     });
 
     return conflitos.length >= 2
-      ? `⚠️ Conflito: ${conflitos.join(" | ")}`
+      ? `⚠️ Conflito de conteúdo sensível entre: ${conflitos.join(" | ")}`
       : null;
   }, [dias, fichasMap]);
 
@@ -182,15 +177,15 @@ export default function GradePage() {
      ACTIONS
   ───────────────────────────── */
 
-  const selecionarFicha = useCallback((diaId: string, fichaId: string) => {
+  function selecionarFicha(diaId: string, fichaId: string) {
     setDias((prev) =>
       prev.map((d) =>
         d.id === diaId ? { ...d, fichaId: fichaId || null } : d
       )
     );
-  }, []);
+  }
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -199,66 +194,94 @@ export default function GradePage() {
       const newIndex = items.findIndex((i) => i.id === over.id);
       return arrayMove(items, oldIndex, newIndex);
     });
-  }, []);
+  }
 
-  const toggleGrade = () => {
-    setExtendida((prev) => {
+  function toggleGrade() {
+    setIsExtendida((prev) => {
       const next = !prev;
-      setDias(criarGrade(next ? 11 : 6));
+      setDias(next ? criarGradeEstendida() : criarGradeNormal());
       return next;
     });
-  };
+  }
 
-  const gerarTexto = () => {
-    return [
-      "❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜",
-      `🌹🩶 ${nomeGrade} 🩶🌹`,
-      "📜 Grade Oficial da Semana 📜",
-      "❛ ━━━━━━━━━━━━━━━━ ❜",
-      ...dias.map((dia, i) => {
-        const ficha = fichasMap.get(dia.fichaId || "");
-        const nome =
-          i === dias.length - 1 ? "Obra Extra" : DIAS[i % 5];
+  function gerarTexto() {
+    let texto = `❛ ━━━━━━･❪🌹❫ ･━━━━━━ ❜\n`;
+    texto += `🌹🩶 ${nomeGrade} 🩶🌹\n`;
+    texto += `📜 Grade Oficial da Semana 📜\n`;
+    texto += `❛ ━━━━━━━━━━━━━━━━ ❜\n`;
 
-        return [
-          `❛ ${nome} ❜`,
-          "",
-          ficha
-            ? formatarParaWhatsApp(ficha.conteudo)
-            : "*(Nenhuma ficha selecionada)*",
-          "──────────────",
-        ].join("\n");
-      }),
-    ].join("\n");
-  };
+    dias.forEach((dia, i) => {
+      const ficha = dia.fichaId ? fichasMap.get(dia.fichaId) : null;
 
-  const copiar = async () => {
+      const nomeDia =
+        i === dias.length - 1 ? "Obra Extra" : DIAS_SEMANA[i % 5];
+
+      texto += `❛ ${nomeDia} ❜\n\n`;
+      texto += ficha
+        ? formatarParaWhatsApp(ficha.conteudo) + "\n"
+        : "*(Nenhuma ficha selecionada)*\n";
+
+      texto += "──────────────\n";
+    });
+
+    return texto;
+  }
+
+  async function copiar() {
     await navigator.clipboard.writeText(gerarTexto());
     alert("Grade copiada 🚀");
-  };
+  }
+
+  /* ─────────────────────────────
+     LOADING
+  ───────────────────────────── */
+
+  if (loading) {
+    return (
+      <div className="p-10 text-center text-zinc-400">
+        Carregando...
+      </div>
+    );
+  }
 
   /* ─────────────────────────────
      UI
   ───────────────────────────── */
 
-  if (loading) return <Loading />;
-
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
 
-        <Header />
+        <h1 className="text-3xl font-bold text-pink-500">
+          Criador de Grade 🌹
+        </h1>
 
-        {alerta && <Alert message={alerta} />}
+        {alertaGatilhos && (
+          <div className="bg-red-500/10 border border-red-500 text-red-300 p-3 rounded-xl">
+            {alertaGatilhos}
+          </div>
+        )}
 
-        <Controls
-          nome={nomeGrade}
-          setNome={setNomeGrade}
-          busca={busca}
-          setBusca={setBusca}
-          extendida={extendida}
-          toggle={toggleGrade}
+        <input
+          value={nomeGrade}
+          onChange={(e) => setNomeGrade(e.target.value)}
+          className="w-full p-3 rounded bg-zinc-800 border border-zinc-700"
         />
+
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          className="w-full p-2 rounded bg-zinc-800 border border-zinc-700"
+        />
+
+        <button
+          onClick={toggleGrade}
+          className="bg-purple-600 px-4 py-2 rounded"
+        >
+          {isExtendida
+            ? "Desativar grade estendida"
+            : "Ativar grade estendida"}
+        </button>
 
         <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
@@ -267,94 +290,43 @@ export default function GradePage() {
           >
             {dias.map((dia, i) => (
               <SortableItem key={dia.id} id={dia.id}>
-                <DiaCard
-                  index={i}
-                  dia={dia}
-                  fichas={fichasFiltradas}
-                  onSelect={selecionarFicha}
-                />
+                <div className="bg-zinc-900 p-4 rounded-xl mb-3">
+
+                  <div className="text-pink-400 font-semibold">
+                    {i === dias.length - 1
+                      ? "Obra Extra"
+                      : DIAS_SEMANA[i % 5]}
+                  </div>
+
+                  <select
+                    value={dia.fichaId ?? ""}
+                    onChange={(e) =>
+                      selecionarFicha(dia.id, e.target.value)
+                    }
+                    className="w-full mt-2 p-2 bg-zinc-800 rounded"
+                  >
+                    <option value="">Selecionar ficha</option>
+                    {fichasFiltradas.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {extrairTitulo(f.conteudo)}
+                      </option>
+                    ))}
+                  </select>
+
+                </div>
               </SortableItem>
             ))}
           </SortableContext>
         </DndContext>
 
-        <CopyButton onClick={copiar} />
+        <button
+          onClick={copiar}
+          className="w-full bg-pink-600 p-4 rounded-xl font-bold"
+        >
+          Copiar Grade 📋
+        </button>
 
       </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────
-   UI PARTS
-──────────────────────────── */
-
-function Header() {
-  return (
-    <h1 className="text-3xl font-bold text-pink-500">
-      Criador de Grade 🌹
-    </h1>
-  );
-}
-
-function Alert({ message }: { message: string }) {
-  return (
-    <div className="bg-red-500/10 border border-red-500 text-red-300 p-3 rounded-xl">
-      {message}
-    </div>
-  );
-}
-
-function Controls({ nome, setNome, busca, setBusca, extendida, toggle }: any) {
-  return (
-    <>
-      <input value={nome} onChange={(e) => setNome(e.target.value)} className="input" />
-      <input value={busca} onChange={(e) => setBusca(e.target.value)} className="input" />
-      <button onClick={toggle} className="btn">
-        {extendida ? "Desativar grade estendida" : "Ativar grade estendida"}
-      </button>
-    </>
-  );
-}
-
-function DiaCard({ index, dia, fichas, onSelect }: any) {
-  const nome = index === fichas.length - 1 ? "Obra Extra" : DIAS[index % 5];
-
-  return (
-    <div className="bg-zinc-900 p-4 rounded-xl mb-3">
-      <div className="text-pink-400 font-semibold">{nome}</div>
-
-      <select
-        value={dia.fichaId ?? ""}
-        onChange={(e) => onSelect(dia.id, e.target.value)}
-        className="w-full mt-2 p-2 bg-zinc-800 rounded"
-      >
-        <option value="">Selecionar ficha</option>
-        {fichas.map((f: Ficha) => (
-          <option key={f.id} value={f.id}>
-            {extrairTitulo(f.conteudo)}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function CopyButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full bg-pink-600 p-4 rounded-xl font-bold"
-    >
-      Copiar Grade 📋
-    </button>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="p-10 text-center text-zinc-400">
-      Carregando...
     </div>
   );
 }
