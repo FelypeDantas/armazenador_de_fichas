@@ -1,8 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+
+/* ─────────────────────────────
+   FONTS
+──────────────────────────── */
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -16,14 +21,49 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+/* ─────────────────────────────
+   METADATA
+──────────────────────────── */
+
 export const metadata: Metadata = {
-  title: "Dark Roses 🌹 | Clube de Leituras",
+  title: {
+    default: "Dark Roses 🌹",
+    template: "%s | Dark Roses",
+  },
   description:
-    "Dark Roses é um sistema para troca de leituras e gerenciamento de fichas de membros. Descubra histórias, compartilhe experiências e registre sua jornada literária.",
-  keywords: ["livros", "leitura", "clube do livro", "fichas de membro"],
+    "Sistema para troca de leituras e gerenciamento de fichas. Descubra histórias, compartilhe experiências e registre sua jornada literária.",
+  keywords: [
+    "livros",
+    "leitura",
+    "clube do livro",
+    "fichas",
+    "leitura compartilhada",
+  ],
   authors: [{ name: "Dark Roses" }],
-  themeColor: "#000000",
+  creator: "Dark Roses",
+
+  icons: {
+    icon: "/favicon.ico",
+  },
+
+  openGraph: {
+    title: "Dark Roses 🌹",
+    description:
+      "Compartilhe leituras, registre experiências e explore histórias.",
+    type: "website",
+    locale: "pt_BR",
+  },
 };
+
+/* 🌐 viewport separado (Next 13+) */
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  colorScheme: "dark light",
+};
+
+/* ─────────────────────────────
+   LAYOUT
+──────────────────────────── */
 
 export default function RootLayout({
   children,
@@ -34,19 +74,25 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
-      <body className="min-h-screen flex flex-col bg-white text-black dark:bg-black dark:text-white antialiased font-sans transition-colors duration-500">
-        <ThemeProvider>
-        {/* 🌹 Navbar global */}
-        <Navbar />
+      <body className="min-h-screen flex flex-col bg-[var(--color-bg)] text-[var(--color-fg)] font-sans antialiased transition-colors duration-300">
 
-        {/* 📦 Conteúdo */}
-        <main className="flex-1 pt-24 px-4 md:px-6">
-          {children}
-        </main>
+        <ThemeProvider>
+          {/* 🌹 Estrutura global */}
+          <div className="flex min-h-screen flex-col">
+
+            {/* NAVBAR */}
+            <Navbar />
+
+            {/* CONTEÚDO */}
+            <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24">
+              {children}
+            </main>
+
+          </div>
         </ThemeProvider>
+
       </body>
     </html>
   );
