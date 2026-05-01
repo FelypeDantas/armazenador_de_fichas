@@ -4,58 +4,65 @@
    🎨 DESIGN TOKENS
 ========================= */
 
-/* 🌞 LIGHT THEME */
 :root {
-  /* 🎭 Base */
-  --bg: #ffffff;
-  --fg: #171717;
+  /* 🎭 BASE */
+  --color-bg: #ffffff;
+  --color-fg: #171717;
 
-  /* 🌿 Brand */
-  --primary: #7c3aed;
-  --primary-strong: #5b21b6;
-  --accent: #c4b5fd;
+  /* 🌿 BRAND */
+  --color-primary: #7c3aed;
+  --color-primary-strong: #5b21b6;
+  --color-accent: #c4b5fd;
 
   /* 🧱 UI */
-  --surface: #ffffff;
-  --muted: #f5f5f5;
-  --border: #e5e5e5;
+  --color-surface: #ffffff;
+  --color-muted: #f5f5f5;
+  --color-border: #e5e5e5;
 
-  /* ✨ Depth */
+  /* 🚦 STATES */
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #facc15;
+
+  /* ✨ DEPTH */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
 
-  /* 🎯 States */
-  --ring: var(--primary);
+  /* 🎯 FOCUS */
+  --ring: var(--color-primary);
   --focus: 0 0 0 2px var(--ring);
 
-  /* 🧩 Radius */
+  /* 🧩 RADIUS */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
 
-  /* 🔤 Typography */
+  /* 🔤 TYPOGRAPHY */
   --font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-mono), monospace;
 
-  /* ⚡ Motion */
+  /* ⚡ MOTION */
   --transition-fast: 0.2s ease;
   --transition-base: 0.3s ease;
 }
 
-/* 🌙 DARK THEME */
+/* =========================
+   🌙 DARK MODE (AUTO + CLASS)
+========================= */
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a0a0a;
-    --fg: #ededed;
+    --color-bg: #0a0a0a;
+    --color-fg: #ededed;
 
-    --primary: #fb7185;
-    --primary-strong: #be123c;
-    --accent: #fecdd3;
+    --color-primary: #fb7185;
+    --color-primary-strong: #be123c;
+    --color-accent: #fecdd3;
 
-    --surface: #121212;
-    --muted: #1a1a1a;
-    --border: #262626;
+    --color-surface: #121212;
+    --color-muted: #1a1a1a;
+    --color-border: #262626;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
@@ -63,22 +70,13 @@
   }
 }
 
-/* 🌑 MANUAL DARK OVERRIDE */
+/* força manual */
 .dark {
-  --bg: #0a0a0a;
-  --fg: #ededed;
-
-  --primary: #fb7185;
-  --primary-strong: #be123c;
-  --accent: #fecdd3;
-
-  --surface: #121212;
-  --muted: #1a1a1a;
-  --border: #262626;
+  color-scheme: dark;
 }
 
 /* =========================
-   🌐 BASE STYLES
+   🌐 BASE
 ========================= */
 
 *,
@@ -94,8 +92,8 @@ html {
 
 body {
   min-height: 100%;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--color-bg);
+  color: var(--color-fg);
   font-family: var(--font-sans);
 
   -webkit-font-smoothing: antialiased;
@@ -110,9 +108,9 @@ body {
    ✨ ELEMENTS
 ========================= */
 
-/* Links */
+/* 🔗 Links */
 a {
-  color: var(--primary);
+  color: var(--color-primary);
   text-decoration: none;
   transition: opacity var(--transition-fast);
 }
@@ -121,13 +119,14 @@ a:hover {
   opacity: 0.75;
 }
 
-/* Buttons */
+/* 🔘 Buttons */
 button {
   cursor: pointer;
   border-radius: var(--radius-md);
   transition:
     transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
 }
 
 button:hover {
@@ -138,24 +137,34 @@ button:active {
   transform: scale(0.96);
 }
 
-/* Inputs */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ✍️ Inputs */
 input,
 textarea {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 0.5rem 0.75rem;
-  color: var(--fg);
+  color: var(--color-fg);
 
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: #888;
+}
+
 input:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary);
   box-shadow: var(--focus);
 }
 
@@ -163,26 +172,26 @@ textarea:focus {
    🎯 UTILITIES
 ========================= */
 
-/* Glass effect */
+/* 🧊 Glass */
 .glass {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
 }
 
-/* Rose gradient */
+/* 🌹 Gradient */
 .gradient-rose {
   background: linear-gradient(
     135deg,
-    var(--primary),
-    var(--primary-strong)
+    var(--color-primary),
+    var(--color-primary-strong)
   );
 }
 
-/* Card */
+/* 🧱 Card */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 1rem;
   box-shadow: var(--shadow-sm);
@@ -198,7 +207,7 @@ textarea:focus {
 }
 
 /* =========================
-   🖱️ SCROLLBAR / SELECTION
+   🖱️ SCROLL / SELECTION
 ========================= */
 
 ::-webkit-scrollbar {
@@ -206,17 +215,17 @@ textarea:focus {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--primary);
+  background: var(--color-primary);
   border-radius: 999px;
 }
 
 ::selection {
-  background: var(--primary);
+  background: var(--color-primary);
   color: #fff;
 }
 
 /* =========================
-   ⚡ ACCESSIBILITY
+   ♿ ACCESSIBILITY
 ========================= */
 
 :focus-visible {
