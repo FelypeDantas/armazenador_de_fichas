@@ -52,7 +52,7 @@ function limparFormatacaoWhatsApp(text: string) {
     🧹 Função de evitar : do especifique
 ───────────────────────────────────────────── */
 
-function findColonOutsideParentheses(text) {
+function findColonOutsideParentheses(text: string): number {
   let depth = 0;
 
   for (let i = 0; i < text.length; i++) {
