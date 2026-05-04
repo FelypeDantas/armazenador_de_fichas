@@ -49,6 +49,27 @@ function limparFormatacaoWhatsApp(text: string) {
 }
 
 /* ─────────────────────────────────────────────
+    🧹 Função de evitar : do especifique
+───────────────────────────────────────────── */
+
+function findColonOutsideParentheses(text) {
+  let depth = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === "(") depth++;
+    else if (char === ")") depth--;
+
+    if (char === ":" && depth === 0) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+/* ─────────────────────────────────────────────
    📋 COPY
 ───────────────────────────────────────────── */
 async function copiarFicha(text: string) {
@@ -409,7 +430,7 @@ useEffect(() => {
                       );
                     }
 
-                    const index = line.indexOf(":");
+                    const index = findColonOutsideParentheses(line);
 
                     const k = index !== -1 ? line.slice(0, index) : line;
                     const v = index !== -1 ? line.slice(index + 1) : "";
