@@ -318,7 +318,7 @@ useEffect(() => {
                               );
                             }
         
-                            const index = line.indexOf(":");
+                            const index = findColonOutsideParentheses(line);
         
                             if (index === -1) {
                               return <p key={idx}>{line}</p>;
