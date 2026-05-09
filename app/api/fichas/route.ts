@@ -1,6 +1,21 @@
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 /* ─────────────────────────────
+   CORS
+──────────────────────────── */
+
+const ALLOWED_ORIGIN =
+  "https://felypedantas.github.io";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods":
+    "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type",
+};
+
+/* ─────────────────────────────
    TYPES
 ──────────────────────────── */
 
@@ -20,7 +35,10 @@ function success(data: unknown, status = 200) {
       success: true,
       data,
     },
-    { status }
+    {
+      status,
+      headers: corsHeaders,
+    }
   );
 }
 
@@ -35,8 +53,22 @@ function fail(
       error,
       ...(details ? { details } : {}),
     },
-    { status }
+    {
+      status,
+      headers: corsHeaders,
+    }
   );
+}
+
+/* ─────────────────────────────
+   OPTIONS (CORS PREFLIGHT)
+──────────────────────────── */
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
 }
 
 /* ─────────────────────────────
@@ -80,7 +112,9 @@ function validarTituloId(value: unknown): string | null {
 ──────────────────────────── */
 
 async function buscarTitulo(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supabase: Awaited<
+    ReturnType<typeof createSupabaseServerClient>
+  >,
   titulo_id: string
 ) {
   const { data, error } = await supabase
@@ -102,7 +136,8 @@ async function buscarTitulo(
 
 export async function GET() {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase =
+      await createSupabaseServerClient();
 
     const { data, error } = await supabase
       .from("fichas")
@@ -146,10 +181,6 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
 
-    /* ─────────────────────────────
-       BODY
-    ───────────────────────────── */
-
     let body: Body;
 
     try {
@@ -158,19 +189,18 @@ export async function POST(req: Request) {
       return fail("JSON inválido");
     }
 
-    /* ─────────────────────────────
-       VALIDATION
-    ───────────────────────────── */
-
     let conteudo: string;
 
     try {
-      conteudo = validarConteudo(body.conteudo);
+      conteudo = validarConteudo(
+        body.conteudo
+      );
     } catch (err: any) {
       return fail(err.message);
     }
 
-    const titulo_id = validarTituloId(body.titulo_id);
+    const titulo_id =
+      validarTituloId(body.titulo_id);
 
     const criado_por =
       typeof body.criado_por === "string"
@@ -180,24 +210,21 @@ export async function POST(req: Request) {
     const supabase =
       await createSupabaseServerClient();
 
-    /* ─────────────────────────────
-       VALIDAR TÍTULO
-    ───────────────────────────── */
+    /* VALIDAR TÍTULO */
 
     if (titulo_id) {
-      const tituloExiste = await buscarTitulo(
-        supabase,
-        titulo_id
-      );
+      const tituloExiste =
+        await buscarTitulo(
+          supabase,
+          titulo_id
+        );
 
       if (!tituloExiste) {
         return fail("Título inválido");
       }
     }
 
-    /* ─────────────────────────────
-       INSERT
-    ───────────────────────────── */
+    /* INSERT */
 
     const { data, error } = await supabase
       .from("fichas")
