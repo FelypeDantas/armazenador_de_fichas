@@ -417,7 +417,7 @@ useEffect(() => {
         )}
 
         {/* EMPTY */}
-        {!loading && Object.keys(grouped).length === 0 && (
+        {!loading && Object.keys(paginatedData.groups).length === 0 && (
           <div className="mt-8 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl p-6 text-center text-gray-500">
             {search
               ? "Nenhuma ficha corresponde à busca."
