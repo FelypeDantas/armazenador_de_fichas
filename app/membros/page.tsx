@@ -155,6 +155,10 @@ useEffect(() => {
   };
 }, []);
 
+useEffect(() => {
+  setPage(1);
+}, [search]);
+
   /* ─────────────────────────────────────────────
      🔍 FILTRO
   ───────────────────────────────────────────── */
@@ -279,10 +283,10 @@ useEffect(() => {
         </header>
 
         {/* GRID */}
-        {!loading && Object.keys(grouped).length > 0 && (
+        {!loading && Object.keys(paginatedData.groups).length > 0 && (
           <div className="space-y-10">
         
-            {Object.entries(grouped).map(([titulo, lista]) => (
+            {Object.entries(paginatedData.groups).map(([titulo, lista]) => (
               <div key={titulo}>
         
                 {/* 🏷️ TÍTULO */}
@@ -381,6 +385,33 @@ useEffect(() => {
                 </div>
               </div>
             ))}
+
+            {/* PAGINAÇÃO */}
+            {paginatedData.totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-10">
+                
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="px-4 py-2 rounded-xl border disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
+            
+                <span className="text-sm text-zinc-500">
+                  Página {page} de {paginatedData.totalPages}
+                </span>
+            
+                <button
+                  disabled={page === paginatedData.totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="px-4 py-2 rounded-xl border disabled:opacity-40"
+                >
+                  Próxima →
+                </button>
+            
+              </div>
+            )}
         
           </div>
         )}
