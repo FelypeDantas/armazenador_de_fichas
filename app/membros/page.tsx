@@ -87,6 +87,8 @@ export default function MembrosPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [titulosList, setTitulosList] = useState<Titulo[]>([]);
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
 
   /* ─────────────────────────────────────────────
      📦 FETCH
@@ -156,38 +158,48 @@ useEffect(() => {
   /* ─────────────────────────────────────────────
      🔍 FILTRO
   ───────────────────────────────────────────── */
-   const grouped = useMemo(() => {
-    const q = search.toLowerCase().trim();
-
-    let base = fichas;
-
-    if (q) {
-      base = fichas.filter((f) =>
-        f.conteudo.toLowerCase().includes(q)
-      );
-    }
-
-    const sorted = [...base].sort((a, b) =>
-      extractFirstLine(a.conteudo).localeCompare(
-        extractFirstLine(b.conteudo),
-        "pt-BR"
-      )
-    );
-
-    const groups: Record<string, Ficha[]> = {};
-
-    for (const ficha of sorted) {
-      const titulo = ficha.titulos?.titulo || "Sem título";
-
-      if (!groups[titulo]) {
-        groups[titulo] = [];
-      }
-
-      groups[titulo].push(ficha);
-    }
-
-    return groups;
-  }, [search, fichas]);
+     const paginatedData = useMemo(() => {
+        const q = search.toLowerCase().trim();
+      
+        let base = fichas;
+      
+        if (q) {
+          base = fichas.filter((f) =>
+            f.conteudo.toLowerCase().includes(q)
+          );
+        }
+      
+        const sorted = [...base].sort((a, b) =>
+          extractFirstLine(a.conteudo).localeCompare(
+            extractFirstLine(b.conteudo),
+            "pt-BR"
+          )
+        );
+      
+        const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+      
+        const start = (page - 1) * ITEMS_PER_PAGE;
+        const end = start + ITEMS_PER_PAGE;
+      
+        const currentItems = sorted.slice(start, end);
+      
+        const groups: Record<string, Ficha[]> = {};
+      
+        for (const ficha of currentItems) {
+          const titulo = ficha.titulos?.titulo || "Sem título";
+      
+          if (!groups[titulo]) {
+            groups[titulo] = [];
+          }
+      
+          groups[titulo].push(ficha);
+        }
+      
+        return {
+          groups,
+          totalPages,
+        };
+      }, [search, fichas, page]);
 
   /* ─────────────────────────────────────────────
      ✏️ UPDATE
