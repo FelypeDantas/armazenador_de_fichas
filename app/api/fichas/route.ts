@@ -142,7 +142,9 @@ export async function GET() {
     const { data, error } = await supabase
       .from("fichas")
       .select(`
-        *,
+        id,
+        conteudo,
+        created_at,
         titulos (
           id,
           titulo
