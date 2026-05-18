@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "@/lib/supabaseClient";
 
 /* ─────────────────────────────
@@ -13,46 +20,58 @@ type Titulo = {
   descricao: string;
 };
 
-type Status = {
-  type: "success" | "error" | "info";
+type StatusVariant =
+  | "success"
+  | "error"
+  | "info";
+
+type StatusType = {
+  type: StatusVariant;
   message: string;
 } | null;
 
-const defaultTitulo: Titulo = {
+/* ─────────────────────────────
+   CONSTANTS
+──────────────────────────── */
+
+const DEFAULT_FORM: Titulo = {
   titulo: "",
   descricao: "",
 };
 
 /* ─────────────────────────────
-   PAGE
+   HOOK
 ──────────────────────────── */
 
-export default function TitulosPage() {
-  const [titulos, setTitulos] = useState<Titulo[]>([]);
-  const [form, setForm] = useState(defaultTitulo);
+function useTitulos() {
+  const [titulos, setTitulos] =
+    useState<Titulo[]>([]);
 
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [status, setStatus] = useState<Status>(null);
+  const [form, setForm] =
+    useState<Titulo>(DEFAULT_FORM);
 
-  /* ─────────────────────────────
-     HELPERS
-  ───────────────────────────── */
+  const [loading, setLoading] =
+    useState(false);
 
-  const setError = (message: string, err?: unknown) => {
-    console.error(err);
-    setStatus({ type: "error", message });
-  };
+  const [fetching, setFetching] =
+    useState(true);
 
-  const setSuccess = (message: string) => {
-    setStatus({ type: "success", message });
-  };
+  const [status, setStatus] =
+    useState<StatusType>(null);
 
-  const resetStatus = () => setStatus(null);
+  const updateStatus = useCallback(
+    (
+      type: StatusVariant,
+      message: string
+    ) => {
+      setStatus({ type, message });
 
-  /* ─────────────────────────────
-     FETCH
-  ───────────────────────────── */
+      setTimeout(() => {
+        setStatus(null);
+      }, 3000);
+    },
+    []
+  );
 
   const fetchTitulos = useCallback(async () => {
     try {
@@ -61,48 +80,55 @@ export default function TitulosPage() {
       const { data, error } = await supabase
         .from("titulos")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false,
+        });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setTitulos(data ?? []);
     } catch (err) {
-      setError("Erro ao carregar títulos", err);
+      console.error(err);
+
+      updateStatus(
+        "error",
+        "Erro ao carregar títulos"
+      );
     } finally {
       setFetching(false);
     }
-  }, []);
+  }, [updateStatus]);
 
   useEffect(() => {
     fetchTitulos();
   }, [fetchTitulos]);
 
-  /* ─────────────────────────────
-     ACTIONS
-  ───────────────────────────── */
-
-  const handleChange = useCallback(
-    (field: keyof Titulo) =>
-      (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const value = e.target.value;
-
-        setForm((prev) => ({
-          ...prev,
-          [field]: value,
-        }));
-      },
+  const updateField = useCallback(
+    (
+      field: keyof Titulo,
+      value: string
+    ) => {
+      setForm((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    },
     []
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    resetStatus();
-
+  const createTitulo = useCallback(async () => {
     const titulo = form.titulo.trim();
-    const descricao = form.descricao.trim();
+    const descricao =
+      form.descricao.trim();
 
     if (!titulo) {
-      setStatus({ type: "info", message: "O título é obrigatório" });
+      updateStatus(
+        "info",
+        "O título é obrigatório"
+      );
+
       return;
     }
 
@@ -123,131 +149,284 @@ export default function TitulosPage() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setTitulos((prev) => [data, ...prev]); // 🚀 otimista
-      setForm(defaultTitulo);
-      setSuccess("Título criado com sucesso");
+      setTitulos((prev) => [
+        data,
+        ...prev,
+      ]);
+
+      setForm(DEFAULT_FORM);
+
+      updateStatus(
+        "success",
+        "Título criado"
+      );
     } catch (err) {
-      setError("Erro ao salvar título", err);
+      console.error(err);
+
+      updateStatus(
+        "error",
+        "Erro ao salvar título"
+      );
     } finally {
       setLoading(false);
     }
+  }, [form, updateStatus]);
+
+  const deleteTitulo = useCallback(
+    async (id: string) => {
+      const previous = titulos;
+
+      try {
+        setTitulos((prev) =>
+          prev.filter((t) => t.id !== id)
+        );
+
+        const { error } = await supabase
+          .from("titulos")
+          .delete()
+          .eq("id", id);
+
+        if (error) {
+          throw error;
+        }
+
+        updateStatus(
+          "success",
+          "Título removido"
+        );
+      } catch (err) {
+        console.error(err);
+
+        setTitulos(previous);
+
+        updateStatus(
+          "error",
+          "Erro ao excluir"
+        );
+      }
+    },
+    [titulos, updateStatus]
+  );
+
+  return {
+    titulos,
+    form,
+    loading,
+    fetching,
+    status,
+    updateField,
+    createTitulo,
+    deleteTitulo,
   };
+}
 
-  const handleDelete = async (id: string) => {
-    const previous = titulos;
+/* ─────────────────────────────
+   PAGE
+──────────────────────────── */
 
-    try {
-      // 🚀 remoção otimista
-      setTitulos((prev) => prev.filter((t) => t.id !== id));
+export default function TitulosPage() {
+  const {
+    titulos,
+    form,
+    loading,
+    fetching,
+    status,
+    updateField,
+    createTitulo,
+    deleteTitulo,
+  } = useTitulos();
 
-      const { error } = await supabase
-        .from("titulos")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-
-      setSuccess("Título removido");
-    } catch (err) {
-      setTitulos(previous); // rollback
-      setError("Erro ao excluir título", err);
-    }
-  };
-
-  /* ─────────────────────────────
-     UI
-  ───────────────────────────── */
+  const hasTitulos = useMemo(
+    () => titulos.length > 0,
+    [titulos]
+  );
 
   return (
-    <main className="p-6 max-w-3xl mx-auto text-white space-y-6">
+    <main className="mx-auto min-h-screen max-w-4xl space-y-8 px-6 py-10 text-white">
 
-      {/* HEADER */}
-      <header>
-        <h1 className="text-2xl font-bold">📌 Títulos</h1>
-        <p className="text-sm text-zinc-400">
-          Gerencie títulos e descrições do sistema
-        </p>
-      </header>
+      <Header />
 
-      {/* STATUS */}
       {status && (
-        <div
-          className={`px-4 py-2 rounded text-sm border
-            ${
-              status.type === "error"
-                ? "bg-red-500/10 border-red-500 text-red-300"
-                : status.type === "success"
-                ? "bg-green-500/10 border-green-500 text-green-300"
-                : "bg-yellow-500/10 border-yellow-500 text-yellow-300"
-            }`}
-        >
-          {status.message}
-        </div>
+        <Status
+          type={status.type}
+          message={status.message}
+        />
       )}
 
-      {/* FORM */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <Form
+        form={form}
+        loading={loading}
+        onChange={updateField}
+        onSubmit={createTitulo}
+      />
 
-        <input
-          type="text"
-          placeholder="Título"
-          value={form.titulo}
-          onChange={handleChange("titulo")}
-          className="w-full p-3 rounded bg-zinc-900 border border-zinc-700"
-        />
-
-        <textarea
-          placeholder="Descrição"
-          value={form.descricao}
-          onChange={handleChange("descricao")}
-          className="w-full p-3 rounded bg-zinc-900 border border-zinc-700"
-        />
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded disabled:opacity-50"
-        >
-          {loading ? "Salvando..." : "Salvar"}
-        </button>
-      </form>
-
-      {/* LISTA */}
       <section className="space-y-4">
-
         {fetching ? (
-          <p className="text-zinc-400 text-sm">Carregando títulos...</p>
-        ) : titulos.length === 0 ? (
-          <p className="text-zinc-500 text-sm">
-            Nenhum título cadastrado ainda.
-          </p>
+          <Loading />
+        ) : !hasTitulos ? (
+          <Empty />
         ) : (
-          titulos.map((t) => (
-            <div
-              key={t.id}
-              className="p-4 bg-zinc-900 border border-zinc-700 rounded-xl"
-            >
-              <h2 className="font-semibold">{t.titulo}</h2>
-
-              {t.descricao && (
-                <p className="text-sm text-zinc-400 mt-1">
-                  {t.descricao}
-                </p>
-              )}
-
-              <button
-                onClick={() => handleDelete(t.id!)}
-                className="mt-3 text-red-400 text-xs hover:underline"
-              >
-                Excluir
-              </button>
-            </div>
+          titulos.map((titulo) => (
+            <TituloCard
+              key={titulo.id}
+              titulo={titulo}
+              onDelete={deleteTitulo}
+            />
           ))
         )}
-
       </section>
     </main>
   );
 }
+
+/* ─────────────────────────────
+   UI
+──────────────────────────── */
+
+const Header = memo(function Header() {
+  return (
+    <header className="space-y-1">
+      <h1 className="text-3xl font-bold tracking-tight">
+        📌 Títulos
+      </h1>
+
+      <p className="text-sm text-zinc-400">
+        Gerencie títulos e descrições
+      </p>
+    </header>
+  );
+});
+
+const Status = memo(function Status({
+  type,
+  message,
+}: {
+  type: StatusVariant;
+  message: string;
+}) {
+  const styles = {
+    success:
+      "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+
+    error:
+      "border-red-500/20 bg-red-500/10 text-red-300",
+
+    info:
+      "border-yellow-500/20 bg-yellow-500/10 text-yellow-300",
+  };
+
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 text-sm ${styles[type]}`}
+    >
+      {message}
+    </div>
+  );
+});
+
+const Form = memo(function Form({
+  form,
+  loading,
+  onChange,
+  onSubmit,
+}: {
+  form: Titulo;
+  loading: boolean;
+  onChange: (
+    field: keyof Titulo,
+    value: string
+  ) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+
+      <input
+        type="text"
+        placeholder="Título"
+        value={form.titulo}
+        onChange={(e) =>
+          onChange(
+            "titulo",
+            e.target.value
+          )
+        }
+        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 outline-none transition focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20"
+      />
+
+      <textarea
+        placeholder="Descrição"
+        value={form.descricao}
+        onChange={(e) =>
+          onChange(
+            "descricao",
+            e.target.value
+          )
+        }
+        className="min-h-[140px] w-full rounded-xl border border-white/10 bg-black/40 p-3 outline-none transition focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20"
+      />
+
+      <button
+        onClick={onSubmit}
+        disabled={loading}
+        className="rounded-xl bg-purple-600 px-5 py-2 font-medium transition hover:bg-purple-700 disabled:opacity-50"
+      >
+        {loading
+          ? "Salvando..."
+          : "Salvar"}
+      </button>
+    </section>
+  );
+});
+
+function Loading() {
+  return (
+    <p className="text-sm text-zinc-400">
+      Carregando títulos...
+    </p>
+  );
+}
+
+function Empty() {
+  return (
+    <p className="text-sm text-zinc-500">
+      Nenhum título cadastrado ainda.
+    </p>
+  );
+}
+
+const TituloCard = memo(function TituloCard({
+  titulo,
+  onDelete,
+}: {
+  titulo: Titulo;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <article className="rounded-2xl border border-white/10 bg-zinc-900 p-5 transition hover:border-white/20">
+
+      <h2 className="font-semibold">
+        {titulo.titulo}
+      </h2>
+
+      {titulo.descricao && (
+        <p className="mt-2 text-sm text-zinc-400">
+          {titulo.descricao}
+        </p>
+      )}
+
+      <button
+        onClick={() =>
+          onDelete(titulo.id!)
+        }
+        className="mt-4 text-xs text-red-400 transition hover:text-red-300"
+      >
+        Excluir
+      </button>
+    </article>
+  );
+});
