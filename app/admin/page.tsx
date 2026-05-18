@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "@/lib/supabaseClient";
+
 import type { User } from "@supabase/supabase-js";
 
 /* ─────────────────────────────
@@ -9,147 +17,194 @@ import type { User } from "@supabase/supabase-js";
 ──────────────────────────── */
 
 type Textos = {
-  id?: string;
   apresentacao: string;
   ficha_feedback: string;
   ficha_conclusao: string;
   observacoes: string;
 };
 
-const defaultTextos: Textos = {
+type StatusType = {
+  type: "success" | "error" | "info";
+  message: string;
+} | null;
+
+/* ─────────────────────────────
+   CONSTANTS
+──────────────────────────── */
+
+const DEFAULT_TEXTOS: Textos = {
   apresentacao: "",
   ficha_feedback: "",
   ficha_conclusao: "",
   observacoes: "",
 };
 
+const CAMPOS = [
+  {
+    key: "apresentacao",
+    title: "🌹 Apresentação",
+  },
+  {
+    key: "ficha_feedback",
+    title: "🍀 Feedback",
+  },
+  {
+    key: "ficha_conclusao",
+    title: "📝 Conclusão",
+  },
+  {
+    key: "observacoes",
+    title: "📌 Observações",
+  },
+] as const;
+
 /* ─────────────────────────────
-   PAGE
+   HOOK
 ──────────────────────────── */
 
-export default function AdminPage() {
-  const [textos, setTextos] = useState<Textos>(defaultTextos);
+function useAdminPanel() {
   const [user, setUser] = useState<User | null>(null);
 
+  const [textos, setTextos] =
+    useState<Textos>(DEFAULT_TEXTOS);
+
   const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
 
-  /* ─────────────────────────────
-     HELPERS
-  ───────────────────────────── */
+  const [status, setStatus] =
+    useState<StatusType>(null);
 
-  const setError = (msg: string, err?: unknown) => {
-    console.error(err);
-    setStatus(msg);
-  };
+  const updateStatus = useCallback(
+    (
+      type: StatusType["type"],
+      message: string
+    ) => {
+      setStatus({ type, message });
 
-  const resetState = () => {
-    setUser(null);
-    setTextos(defaultTextos);
-  };
+      setTimeout(() => {
+        setStatus(null);
+      }, 3000);
+    },
+    []
+  );
 
-  /* ─────────────────────────────
-     LOAD / CREATE
-  ───────────────────────────── */
+  const loadData = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from("admin_textos")
+      .upsert(
+        {
+          user_id: userId,
+          ...DEFAULT_TEXTOS,
+        },
+        {
+          onConflict: "user_id",
+        }
+      )
+      .select()
+      .single();
 
-  const loadOrCreate = useCallback(async (u: User) => {
-    try {
-      setUser(u);
-
-      const { data, error } = await supabase
-        .from("admin_textos")
-        .select("*")
-        .eq("user_id", u.id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setTextos(data);
-        return;
-      }
-
-      const { data: created, error: insertError } = await supabase
-        .from("admin_textos")
-        .insert({
-          user_id: u.id,
-          ...defaultTextos,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      setTextos(created ?? defaultTextos);
-    } catch (err) {
-      setError("❌ Erro ao carregar dados", err);
+    if (error) {
+      throw error;
     }
+
+    return data;
   }, []);
 
-  /* ─────────────────────────────
-     INIT + AUTH
-  ───────────────────────────── */
-
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    const init = async () => {
+    const initialize = async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        const u = data?.user;
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (!mounted) return;
+        if (!active) return;
 
-        if (u) {
-          await loadOrCreate(u);
-        } else {
-          setStatus("⚠️ Usuário não autenticado");
+        if (!user) {
+          updateStatus(
+            "error",
+            "Usuário não autenticado"
+          );
+
+          return;
         }
+
+        setUser(user);
+
+        const data = await loadData(user.id);
+
+        if (!active) return;
+
+        setTextos(data);
       } catch (err) {
-        setError("❌ Falha ao iniciar sessão", err);
+        console.error(err);
+
+        updateStatus(
+          "error",
+          "Erro ao carregar painel"
+        );
       } finally {
-        if (mounted) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
-    init();
+    initialize();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mounted) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (_, session) => {
+        const currentUser = session?.user;
 
-        const u = session?.user;
+        if (!active) return;
 
-        if (u) {
-          await loadOrCreate(u);
-        } else {
-          resetState();
-          setStatus("⚠️ Sessão encerrada");
+        if (!currentUser) {
+          setUser(null);
+          setTextos(DEFAULT_TEXTOS);
+
+          updateStatus(
+            "info",
+            "Sessão encerrada"
+          );
+
+          return;
         }
+
+        setUser(currentUser);
+
+        const data = await loadData(currentUser.id);
+
+        if (!active) return;
+
+        setTextos(data);
       }
     );
 
     return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
+      active = false;
+      subscription.unsubscribe();
     };
-  }, [loadOrCreate]);
+  }, [loadData, updateStatus]);
 
-  /* ─────────────────────────────
-     ACTIONS
-  ───────────────────────────── */
+  const updateField = useCallback(
+    (field: keyof Textos, value: string) => {
+      setTextos((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    },
+    []
+  );
 
-  const atualizar = useCallback((campo: keyof Textos, valor: string) => {
-    setTextos((prev) => ({ ...prev, [campo]: valor }));
-  }, []);
-
-  const salvar = useCallback(async () => {
-    if (!user) return;
+  const save = useCallback(async () => {
+    if (!user || saving) return;
 
     try {
       setSaving(true);
-      setStatus(null);
 
       const { error } = await supabase
         .from("admin_textos")
@@ -159,90 +214,178 @@ export default function AdminPage() {
         })
         .eq("user_id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setStatus("✅ Salvo com sucesso");
+      updateStatus(
+        "success",
+        "Alterações salvas"
+      );
     } catch (err) {
-      setError("❌ Falha ao salvar", err);
+      console.error(err);
+
+      updateStatus(
+        "error",
+        "Erro ao salvar alterações"
+      );
     } finally {
       setSaving(false);
     }
-  }, [textos, user]);
+  }, [saving, textos, updateStatus, user]);
 
-  const copiar = useCallback(async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus("📋 Copiado!");
-    } catch {
-      setStatus("❌ Erro ao copiar");
-    }
-  }, []);
+  const copy = useCallback(
+    async (value: string) => {
+      try {
+        await navigator.clipboard.writeText(value);
 
-  /* ─────────────────────────────
-     LOADING
-  ───────────────────────────── */
+        updateStatus(
+          "success",
+          "Texto copiado"
+        );
+      } catch {
+        updateStatus(
+          "error",
+          "Erro ao copiar"
+        );
+      }
+    },
+    [updateStatus]
+  );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-400">
-        Carregando painel...
-      </div>
-    );
-  }
+  return {
+    textos,
+    loading,
+    saving,
+    status,
+    updateField,
+    save,
+    copy,
+  };
+}
 
-  /* ─────────────────────────────
-     UI
-  ───────────────────────────── */
+/* ─────────────────────────────
+   PAGE
+──────────────────────────── */
+
+export default function AdminPage() {
+  const {
+    textos,
+    loading,
+    saving,
+    status,
+    updateField,
+    save,
+    copy,
+  } = useAdminPanel();
+
+  const fields = useMemo(
+    () =>
+      CAMPOS.map((campo) => ({
+        ...campo,
+        value: textos[campo.key],
+      })),
+    [textos]
+  );
 
   return (
-    <div className="min-h-screen bg-black text-white px-6 py-10 max-w-6xl mx-auto space-y-8">
+    <main className="min-h-screen bg-black px-6 py-10 text-white">
+      <div className="mx-auto max-w-6xl space-y-8">
 
-      <Header />
+        <Header />
 
-      {status && <Status message={status} />}
+        {status && (
+          <Status
+            type={status.type}
+            message={status.message}
+          />
+        )}
 
-      <section className="grid md:grid-cols-2 gap-6">
-        <Field title="🌹 Apresentação" value={textos.apresentacao} onChange={(v) => atualizar("apresentacao", v)} onCopy={() => copiar(textos.apresentacao)} />
-        <Field title="🍀 Feedback" value={textos.ficha_feedback} onChange={(v) => atualizar("ficha_feedback", v)} onCopy={() => copiar(textos.ficha_feedback)} />
-        <Field title="📝 Conclusão" value={textos.ficha_conclusao} onChange={(v) => atualizar("ficha_conclusao", v)} onCopy={() => copiar(textos.ficha_conclusao)} />
-        <Field title="📌 Observações" value={textos.observacoes} onChange={(v) => atualizar("observacoes", v)} onCopy={() => copiar(textos.observacoes)} />
-      </section>
+        {loading ? (
+          <Loading />
+        ) : (
+          <>
+            <section className="grid gap-6 md:grid-cols-2">
+              {fields.map((field) => (
+                <Field
+                  key={field.key}
+                  title={field.title}
+                  value={field.value}
+                  onChange={(value) =>
+                    updateField(field.key, value)
+                  }
+                  onCopy={() =>
+                    copy(field.value)
+                  }
+                />
+              ))}
+            </section>
 
-      <button
-        onClick={salvar}
-        disabled={saving}
-        className="w-full py-3 rounded-xl font-semibold bg-rose-600 hover:bg-rose-700 transition disabled:opacity-50"
-      >
-        {saving ? "Salvando..." : "Salvar alterações"}
-      </button>
-    </div>
+            <SaveButton
+              loading={saving}
+              onClick={save}
+            />
+          </>
+        )}
+      </div>
+    </main>
   );
 }
 
 /* ─────────────────────────────
-   SUB COMPONENTS
+   UI
 ──────────────────────────── */
 
-function Header() {
+const Header = memo(function Header() {
   return (
     <header className="space-y-1">
-      <h1 className="text-3xl font-bold">👑 Painel Administrativo</h1>
+      <h1 className="text-3xl font-bold tracking-tight">
+        👑 Painel Administrativo
+      </h1>
+
       <p className="text-sm text-zinc-400">
         Gerencie os textos do sistema
       </p>
     </header>
   );
-}
+});
 
-function Status({ message }: { message: string }) {
+function Loading() {
   return (
-    <div className="bg-white/5 border border-white/10 text-zinc-300 px-4 py-2 rounded-xl text-sm">
-      {message}
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-zinc-400">
+      Carregando painel...
     </div>
   );
 }
 
-function Field({
+const Status = memo(function Status({
+  type,
+  message,
+}: {
+  type: "success" | "error" | "info";
+  message: string;
+}) {
+  const styles = {
+    success:
+      "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+
+    error:
+      "border-red-500/20 bg-red-500/10 text-red-300",
+
+    info:
+      "border-zinc-500/20 bg-zinc-500/10 text-zinc-300",
+  };
+
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 text-sm ${styles[type]}`}
+    >
+      {message}
+    </div>
+  );
+});
+
+const Field = memo(function Field({
   title,
   value,
   onChange,
@@ -250,18 +393,20 @@ function Field({
 }: {
   title: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   onCopy: () => void;
 }) {
   return (
-    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 hover:border-white/20 transition">
+    <article className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20">
 
       <div className="flex items-center justify-between">
-        <h2 className="font-medium text-white/90">{title}</h2>
+        <h2 className="font-medium text-white/90">
+          {title}
+        </h2>
 
         <button
           onClick={onCopy}
-          className="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition"
+          className="rounded-lg bg-white/10 px-3 py-1 text-xs transition hover:bg-white/20"
         >
           Copiar
         </button>
@@ -269,9 +414,31 @@ function Field({
 
       <textarea
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-40 resize-none bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+        onChange={(e) =>
+          onChange(e.target.value)
+        }
+        className="h-44 w-full resize-none rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none transition focus:border-rose-500/50 focus:ring-2 focus:ring-rose-500/20"
       />
-    </div>
+    </article>
   );
-}
+});
+
+const SaveButton = memo(function SaveButton({
+  loading,
+  onClick,
+}: {
+  loading: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="w-full rounded-2xl bg-rose-600 py-3 font-semibold transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {loading
+        ? "Salvando..."
+        : "Salvar alterações"}
+    </button>
+  );
+});
