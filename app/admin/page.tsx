@@ -23,8 +23,13 @@ type Textos = {
   observacoes: string;
 };
 
+type StatusVariant =
+  | "success"
+  | "error"
+  | "info";
+
 type StatusType = {
-  type: "success" | "error" | "info";
+  type: StatusVariant;
   message: string;
 } | null;
 
@@ -57,6 +62,20 @@ const CAMPOS = [
     title: "📌 Observações",
   },
 ] as const;
+
+const updateStatus = useCallback(
+  (
+    type: StatusVariant,
+    message: string
+  ) => {
+    setStatus({ type, message });
+
+    setTimeout(() => {
+      setStatus(null);
+    }, 3000);
+  },
+  []
+);
 
 /* ─────────────────────────────
    HOOK
