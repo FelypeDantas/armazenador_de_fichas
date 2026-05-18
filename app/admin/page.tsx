@@ -63,20 +63,6 @@ const CAMPOS = [
   },
 ] as const;
 
-const updateStatus = useCallback(
-  (
-    type: StatusVariant,
-    message: string
-  ) => {
-    setStatus({ type, message });
-
-    setTimeout(() => {
-      setStatus(null);
-    }, 3000);
-  },
-  []
-);
-
 /* ─────────────────────────────
    HOOK
 ──────────────────────────── */
@@ -94,13 +80,13 @@ function useAdminPanel() {
   const [status, setStatus] =
     useState<StatusType>(null);
 
-  const updateStatus = useCallback(
+   const updateStatus = useCallback(
     (
-      type: StatusType["type"],
+      type: StatusVariant,
       message: string
     ) => {
       setStatus({ type, message });
-
+  
       setTimeout(() => {
         setStatus(null);
       }, 3000);
