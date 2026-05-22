@@ -1,44 +1,62 @@
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
-/* ─────────────────────────────
-   CORS
-──────────────────────────── */
+/* ──────────────────────────────────────────
+   CONFIG
+────────────────────────────────────────── */
 
 const ALLOWED_ORIGIN =
   "https://felypedantas.github.io";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin":
+    ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods":
     "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "Content-Type",
 };
 
-/* ─────────────────────────────
+/* ──────────────────────────────────────────
    TYPES
-──────────────────────────── */
+────────────────────────────────────────── */
 
-type Body = {
+type RequestBody = {
   conteudo?: unknown;
-  criado_por?: string | null;
-  titulo_id?: string | null;
+  criado_por?: unknown;
+  titulo_id?: unknown;
 };
 
-/* ─────────────────────────────
-   RESPONSE HELPERS
-──────────────────────────── */
+type ApiResponse<T = unknown> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+  details?: unknown;
+};
 
-function success(data: unknown, status = 200) {
-  return Response.json(
+/* ──────────────────────────────────────────
+   RESPONSE HELPERS
+────────────────────────────────────────── */
+
+function jsonResponse<T>(
+  body: ApiResponse<T>,
+  status = 200
+) {
+  return Response.json(body, {
+    status,
+    headers: CORS_HEADERS,
+  });
+}
+
+function success<T>(
+  data: T,
+  status = 200
+) {
+  return jsonResponse<T>(
     {
       success: true,
       data,
     },
-    {
-      status,
-      headers: corsHeaders,
-    }
+    status
   );
 }
 
@@ -47,57 +65,55 @@ function fail(
   status = 400,
   details?: unknown
 ) {
-  return Response.json(
+  return jsonResponse(
     {
       success: false,
       error,
-      ...(details ? { details } : {}),
+      ...(details && { details }),
     },
-    {
-      status,
-      headers: corsHeaders,
-    }
+    status
   );
 }
 
-/* ─────────────────────────────
-   OPTIONS (CORS PREFLIGHT)
-──────────────────────────── */
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders,
-  });
-}
-
-/* ─────────────────────────────
+/* ──────────────────────────────────────────
    VALIDATIONS
-──────────────────────────── */
+────────────────────────────────────────── */
 
-function validarConteudo(value: unknown): string {
+function validarConteudo(
+  value: unknown
+): string {
   if (typeof value !== "string") {
-    throw new Error("Conteúdo inválido");
+    throw new Error(
+      "Conteúdo inválido"
+    );
   }
 
-  const texto = value.trim();
+  const conteudo = value.trim();
 
-  if (!texto) {
-    throw new Error("Conteúdo é obrigatório");
+  if (!conteudo) {
+    throw new Error(
+      "Conteúdo é obrigatório"
+    );
   }
 
-  if (texto.length < 3) {
-    throw new Error("Ficha muito curta");
+  if (conteudo.length < 3) {
+    throw new Error(
+      "Ficha muito curta"
+    );
   }
 
-  if (texto.length > 10000) {
-    throw new Error("Ficha muito grande");
+  if (conteudo.length > 10_000) {
+    throw new Error(
+      "Ficha muito grande"
+    );
   }
 
-  return texto;
+  return conteudo;
 }
 
-function validarTituloId(value: unknown): string | null {
+function validarTextoOpcional(
+  value: unknown
+): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -107,32 +123,41 @@ function validarTituloId(value: unknown): string | null {
   return texto || null;
 }
 
-/* ─────────────────────────────
-   DATABASE HELPERS
-──────────────────────────── */
+/* ──────────────────────────────────────────
+   DATABASE
+────────────────────────────────────────── */
 
-async function buscarTitulo(
+async function tituloExiste(
   supabase: Awaited<
-    ReturnType<typeof createSupabaseServerClient>
+    ReturnType<
+      typeof createSupabaseServerClient
+    >
   >,
-  titulo_id: string
+  tituloId: string
 ) {
   const { data, error } = await supabase
     .from("titulos")
     .select("id")
-    .eq("id", titulo_id)
+    .eq("id", tituloId)
     .maybeSingle();
 
-  if (error || !data) {
-    return null;
-  }
-
-  return data;
+  return !error && !!data;
 }
 
-/* ─────────────────────────────
-   GET → listar fichas
-──────────────────────────── */
+/* ──────────────────────────────────────────
+   OPTIONS
+────────────────────────────────────────── */
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
+}
+
+/* ──────────────────────────────────────────
+   GET → LISTAR FICHAS
+────────────────────────────────────────── */
 
 export async function GET() {
   try {
@@ -155,19 +180,25 @@ export async function GET() {
       });
 
     if (error) {
-      console.error("GET fichas:", error);
+      console.error(
+        "[FICHAS_GET_ERROR]",
+        error
+      );
 
       return fail(
         "Erro ao buscar fichas",
-        400,
+        500,
         error.message
       );
     }
 
     return success(data ?? []);
 
-  } catch (err) {
-    console.error("GET fatal:", err);
+  } catch (error) {
+    console.error(
+      "[FICHAS_GET_FATAL]",
+      error
+    );
 
     return fail(
       "Erro interno no servidor",
@@ -176,20 +207,25 @@ export async function GET() {
   }
 }
 
-/* ─────────────────────────────
-   POST → criar ficha
-──────────────────────────── */
+/* ──────────────────────────────────────────
+   POST → CRIAR FICHA
+────────────────────────────────────────── */
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request
+) {
   try {
-
-    let body: Body;
+    let body: RequestBody;
 
     try {
       body = await req.json();
     } catch {
-      return fail("JSON inválido");
+      return fail(
+        "JSON inválido"
+      );
     }
+
+    /* VALIDAR DADOS */
 
     let conteudo: string;
 
@@ -197,17 +233,21 @@ export async function POST(req: Request) {
       conteudo = validarConteudo(
         body.conteudo
       );
-    } catch (err: any) {
-      return fail(err.message);
+    } catch (error) {
+      return fail(
+        (error as Error).message
+      );
     }
 
     const titulo_id =
-      validarTituloId(body.titulo_id);
+      validarTextoOpcional(
+        body.titulo_id
+      );
 
     const criado_por =
-      typeof body.criado_por === "string"
-        ? body.criado_por.trim() || null
-        : null;
+      validarTextoOpcional(
+        body.criado_por
+      );
 
     const supabase =
       await createSupabaseServerClient();
@@ -215,14 +255,16 @@ export async function POST(req: Request) {
     /* VALIDAR TÍTULO */
 
     if (titulo_id) {
-      const tituloExiste =
-        await buscarTitulo(
+      const exists =
+        await tituloExiste(
           supabase,
           titulo_id
         );
 
-      if (!tituloExiste) {
-        return fail("Título inválido");
+      if (!exists) {
+        return fail(
+          "Título inválido"
+        );
       }
     }
 
@@ -236,7 +278,10 @@ export async function POST(req: Request) {
         titulo_id,
       })
       .select(`
-        *,
+        id,
+        conteudo,
+        created_at,
+        criado_por,
         titulos (
           id,
           titulo
@@ -245,19 +290,25 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      console.error("POST fichas:", error);
+      console.error(
+        "[FICHAS_POST_ERROR]",
+        error
+      );
 
       return fail(
-        "Erro ao salvar no banco",
-        400,
+        "Erro ao salvar ficha",
+        500,
         error.message
       );
     }
 
     return success(data, 201);
 
-  } catch (err) {
-    console.error("POST fatal:", err);
+  } catch (error) {
+    console.error(
+      "[FICHAS_POST_FATAL]",
+      error
+    );
 
     return fail(
       "Erro interno no servidor",
