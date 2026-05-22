@@ -69,7 +69,7 @@ function fail(
     {
       success: false,
       error,
-      ...(details && { details }),
+      ...(details ? { details } : {}),
     },
     status
   );
