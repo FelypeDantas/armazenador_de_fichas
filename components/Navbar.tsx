@@ -29,7 +29,6 @@ const links = [
   { name: "Início", href: "/", icon: Home },
   { name: "Membros", href: "/membros", icon: Users },
   { name: "Grade", href: "/grade", icon: Settings },
-  { name: "Admin", href: "/admin", icon: ClipboardList },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Títulos", href: "/titulos", icon: Heading },
 ];
