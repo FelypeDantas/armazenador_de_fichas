@@ -52,59 +52,79 @@ function useDashboard() {
   const [stats, setStats] =
     useState<DashboardStats>(INITIAL_STATS);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const loadDashboard = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
+  const [error, setError] =
+    useState<string | null>(null);
 
-      const { data, error } = await supabase
-        .from("fichas")
-        .select("titulo");
+  const loadDashboard = useCallback(
+    async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      if (error) throw error;
+        const { data, error } =
+          await supabase
+            .from("fichas")
+            .select(`
+              id,
+              titulos (
+                titulo
+              )
+            `);
 
-      let arcanjos = 0;
-      let admFixos = 0;
-      let adms = 0;
+        if (error) throw error;
 
-      for (const ficha of (data ?? []) as FichaTitulo[]) {
-        const titulo = ficha.titulo?.trim();
+        const nextStats: DashboardStats = {
+          arcanjos: 0,
+          admFixos: 0,
+          adms: 0,
+        };
 
-        if (!titulo) continue;
+        for (const ficha of (data ??
+          []) as FichaDashboard[]) {
 
-        if (titulo === "ADM") {
-          adms++;
-          continue;
+          const titulo =
+            ficha.titulos?.titulo?.trim();
+
+          if (!titulo) continue;
+
+          if (
+            TITULOS_ARCANJOS.has(titulo)
+          ) {
+            nextStats.arcanjos++;
+            continue;
+          }
+
+          switch (titulo) {
+            case "ADM":
+              nextStats.adms++;
+              break;
+
+            case "ADM de Fixo":
+              nextStats.admFixos++;
+              break;
+          }
         }
 
-        if (titulo === "ADM de Fixo") {
-          admFixos++;
-          continue;
-        }
+        setStats(nextStats);
 
-        if (TITULOS_ARCANJOS.has(titulo)) {
-          arcanjos++;
-        }
+      } catch (err) {
+        console.error(
+          "[DASHBOARD_ERROR]",
+          err
+        );
+
+        setError(
+          "Não foi possível carregar os dados do dashboard."
+        );
+      } finally {
+        setLoading(false);
       }
-
-      setStats({
-        arcanjos,
-        admFixos,
-        adms,
-      });
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        "Não foi possível carregar os dados do dashboard."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     loadDashboard();
@@ -117,7 +137,6 @@ function useDashboard() {
     reload: loadDashboard,
   };
 }
-
 export default function Dashboard() {
   const { stats, loading, error } =
     useDashboard();
