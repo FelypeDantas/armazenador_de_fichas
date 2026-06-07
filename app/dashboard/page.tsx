@@ -1,179 +1,189 @@
 "use client";
 
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import { memo, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-/* ─────────────────────────────
-   TYPES
-──────────────────────────── */
-
-type Ficha = {
-  id: string;
-  conteudo: string;
-  created_at: string;
+type DashboardStats = {
+  arcanjos: number;
+  admFixos: number;
+  adms: number;
 };
 
-type DashboardData = {
-  totalFichas: number;
-  fichasHoje: number;
-  totalPalavras: number;
-  chartData: [string, number][];
+type FichaTitulo = {
+  titulo: string | null;
 };
 
-/* ─────────────────────────────
-   UTILS
-──────────────────────────── */
+const TITULOS_ARCANJOS = new Set([
+  "Arcanjo Vermelho",
+  "Arcanjo Negro",
+  "Arcanjo Branco",
+  "Arcanjo Dourado",
+  "Arcanjo Carmesim",
+]);
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR");
+const INITIAL_STATS: DashboardStats = {
+  arcanjos: 0,
+  admFixos: 0,
+  adms: 0,
+};
 
-const formatarData = (data: string) =>
-  dateFormatter.format(new Date(data));
-
-const contarPalavras = (texto = "") =>
-  texto.trim().split(/\s+/).filter(Boolean).length;
-
-const truncate = (text = "", size = 120) =>
-  text.length > size ? `${text.slice(0, size)}...` : text;
-
-/* ─────────────────────────────
-   DATA HOOK
-──────────────────────────── */
+const CARDS = [
+  {
+    key: "arcanjos",
+    title: "Arcanjos",
+    icon: "👼",
+    description: "Vermelho, Negro, Branco, Dourado e Carmesim",
+  },
+  {
+    key: "admFixos",
+    title: "ADM de Fixo",
+    icon: "🛡️",
+    description: "Responsáveis fixos",
+  },
+  {
+    key: "adms",
+    title: "ADM",
+    icon: "⚔️",
+    description: "Administradores",
+  },
+] as const;
 
 function useDashboard() {
-  const [fichas, setFichas] = useState<Ficha[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] =
+    useState<DashboardStats>(INITIAL_STATS);
 
-  const fetchFichas = useCallback(async () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
+      setError("");
 
       const { data, error } = await supabase
         .from("fichas")
-        .select("id, conteudo, created_at")
-        .order("created_at", { ascending: false });
+        .select("titulo");
 
       if (error) throw error;
 
-      setFichas(data ?? []);
+      let arcanjos = 0;
+      let admFixos = 0;
+      let adms = 0;
+
+      for (const ficha of (data ?? []) as FichaTitulo[]) {
+        const titulo = ficha.titulo?.trim();
+
+        if (!titulo) continue;
+
+        if (titulo === "ADM") {
+          adms++;
+          continue;
+        }
+
+        if (titulo === "ADM de Fixo") {
+          admFixos++;
+          continue;
+        }
+
+        if (TITULOS_ARCANJOS.has(titulo)) {
+          arcanjos++;
+        }
+      }
+
+      setStats({
+        arcanjos,
+        admFixos,
+        adms,
+      });
     } catch (err) {
       console.error(err);
-      setError("Erro ao carregar dashboard.");
+
+      setError(
+        "Não foi possível carregar os dados do dashboard."
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchFichas();
-  }, [fetchFichas]);
-
-  const dashboardData = useMemo<DashboardData>(() => {
-    const hoje = formatarData(new Date().toISOString());
-
-    let totalFichas = 0;
-    let fichasHoje = 0;
-    let totalPalavras = 0;
-
-    const mapa = new Map<string, number>();
-
-    for (const ficha of fichas) {
-      totalFichas++;
-
-      const palavras = contarPalavras(ficha.conteudo);
-      totalPalavras += palavras;
-
-      const dia = formatarData(ficha.created_at);
-
-      if (dia === hoje) {
-        fichasHoje++;
-      }
-
-      mapa.set(dia, (mapa.get(dia) ?? 0) + 1);
-    }
-
-    return {
-      totalFichas,
-      fichasHoje,
-      totalPalavras,
-      chartData: Array.from(mapa.entries()).slice(-7),
-    };
-  }, [fichas]);
+    loadDashboard();
+  }, [loadDashboard]);
 
   return {
-    fichas,
+    stats,
     loading,
     error,
-    refetch: fetchFichas,
-    ...dashboardData,
+    reload: loadDashboard,
   };
 }
 
-/* ─────────────────────────────
-   PAGE
-──────────────────────────── */
-
 export default function Dashboard() {
-  const {
-    fichas,
-    loading,
-    error,
-    totalFichas,
-    fichasHoje,
-    totalPalavras,
-    chartData,
-  } = useDashboard();
+  const { stats, loading, error } =
+    useDashboard();
+
+  const totalEquipe =
+    stats.arcanjos +
+    stats.admFixos +
+    stats.adms;
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-10">
-      <div className="mx-auto max-w-7xl space-y-8">
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-7xl px-6 py-10">
 
         <Header />
 
         {loading && <Loading />}
 
-        {!loading && error && <Error message={error} />}
+        {!loading && error && (
+          <Error message={error} />
+        )}
 
         {!loading && !error && (
-          <>
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Card title="Total de Fichas" value={totalFichas} />
-              <Card title="Criadas Hoje" value={fichasHoje} />
-              <Card title="Palavras Totais" value={totalPalavras} />
+          <div className="space-y-6">
+
+            <section className="rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-transparent to-transparent p-8">
+              <p className="text-sm uppercase tracking-[0.2em] text-zinc-400">
+                Equipe Principal
+              </p>
+
+              <h2 className="mt-3 text-6xl font-black">
+                {totalEquipe.toLocaleString("pt-BR")}
+              </h2>
+
+              <p className="mt-2 text-zinc-400">
+                Arcanjos, ADMs e ADMs de Fixo
+              </p>
             </section>
 
-            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-              <Chart data={chartData} />
-              <RecentList fichas={fichas} />
-            </div>
-          </>
+            <section className="grid gap-4 md:grid-cols-3">
+              {CARDS.map((card) => (
+                <StatCard
+                  key={card.key}
+                  icon={card.icon}
+                  title={card.title}
+                  description={card.description}
+                  value={stats[card.key]}
+                />
+              ))}
+            </section>
+
+          </div>
         )}
       </div>
     </main>
   );
 }
 
-/* ─────────────────────────────
-   UI
-──────────────────────────── */
-
 const Header = memo(function Header() {
   return (
-    <header className="space-y-1">
-      <h1 className="text-3xl font-bold tracking-tight">
+    <header className="mb-8">
+      <h1 className="text-4xl font-bold">
         📊 Dashboard
       </h1>
 
-      <p className="text-sm text-zinc-400">
-        Visão geral das fichas do sistema
+      <p className="mt-2 text-zinc-400">
+        Visão geral da equipe
       </p>
     </header>
   );
@@ -181,13 +191,17 @@ const Header = memo(function Header() {
 
 function Loading() {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-zinc-400">
-      Carregando dashboard...
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-zinc-400">
+      Carregando estatísticas...
     </div>
   );
 }
 
-function Error({ message }: { message: string }) {
+function Error({
+  message,
+}: {
+  message: string;
+}) {
   return (
     <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-8 text-center text-red-300">
       {message}
@@ -195,81 +209,34 @@ function Error({ message }: { message: string }) {
   );
 }
 
-const Card = memo(function Card({
+const StatCard = memo(function StatCard({
+  icon,
   title,
+  description,
   value,
 }: {
+  icon: string;
   title: string;
+  description: string;
   value: number;
 }) {
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm transition hover:border-white/20">
-      <p className="text-sm text-zinc-400">{title}</p>
+    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-rose-500/30 hover:bg-white/[0.05]">
+      <div className="text-4xl">
+        {icon}
+      </div>
 
-      <strong className="mt-2 block text-3xl font-bold">
+      <p className="mt-4 text-sm font-medium">
+        {title}
+      </p>
+
+      <p className="mt-1 text-xs text-zinc-500">
+        {description}
+      </p>
+
+      <strong className="mt-4 block text-4xl font-bold">
         {value.toLocaleString("pt-BR")}
       </strong>
     </article>
-  );
-});
-
-const Chart = memo(function Chart({
-  data,
-}: {
-  data: [string, number][];
-}) {
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <h2 className="mb-6 text-sm text-zinc-300">
-        Fichas dos últimos dias
-      </h2>
-
-      <div className="flex h-48 items-end gap-2">
-        {data.map(([dia, qtd]) => {
-          const height = Math.min(qtd * 18, 160);
-
-          return (
-            <div
-              key={dia}
-              className="flex flex-1 flex-col items-center"
-            >
-              <div
-                className="w-full rounded-lg bg-rose-500/80 transition-all duration-300"
-                style={{ height }}
-              />
-
-              <span className="mt-2 text-[10px] text-zinc-500">
-                {dia.slice(0, 5)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-});
-
-const RecentList = memo(function RecentList({
-  fichas,
-}: {
-  fichas: Ficha[];
-}) {
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <h2 className="mb-4 text-sm text-zinc-300">
-        Fichas recentes
-      </h2>
-
-      <div className="space-y-3">
-        {fichas.slice(0, 5).map((ficha) => (
-          <article
-            key={ficha.id}
-            className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-300 transition hover:border-white/20"
-          >
-            {truncate(ficha.conteudo) || "Sem conteúdo"}
-          </article>
-        ))}
-      </div>
-    </section>
   );
 });
