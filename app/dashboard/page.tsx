@@ -9,8 +9,16 @@ type DashboardStats = {
   adms: number;
 };
 
-type FichaTitulo = {
-  titulo: string | null;
+type Ficha = {
+  id: string;
+  titulos:
+    | {
+        titulo: string;
+      }
+    | {
+        titulo: string;
+      }[]
+    | null;
 };
 
 const TITULOS_ARCANJOS = new Set([
@@ -32,7 +40,8 @@ const CARDS = [
     key: "arcanjos",
     title: "Arcanjos",
     icon: "👼",
-    description: "Vermelho, Negro, Branco, Dourado e Carmesim",
+    description:
+      "Vermelho, Negro, Branco, Dourado e Carmesim",
   },
   {
     key: "admFixos",
@@ -47,6 +56,16 @@ const CARDS = [
     description: "Administradores",
   },
 ] as const;
+
+function getTitulo(ficha: Ficha) {
+  if (!ficha.titulos) return null;
+
+  if (Array.isArray(ficha.titulos)) {
+    return ficha.titulos[0]?.titulo ?? null;
+  }
+
+  return ficha.titulos.titulo;
+}
 
 function useDashboard() {
   const [stats, setStats] =
@@ -74,7 +93,9 @@ function useDashboard() {
               )
             `);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         const nextStats: DashboardStats = {
           arcanjos: 0,
@@ -83,10 +104,10 @@ function useDashboard() {
         };
 
         for (const ficha of (data ??
-          []) as FichaDashboard[]) {
+          []) as Ficha[]) {
 
           const titulo =
-            ficha.titulos?.titulo?.trim();
+            getTitulo(ficha)?.trim();
 
           if (!titulo) continue;
 
@@ -134,12 +155,15 @@ function useDashboard() {
     stats,
     loading,
     error,
-    reload: loadDashboard,
   };
 }
+
 export default function Dashboard() {
-  const { stats, loading, error } =
-    useDashboard();
+  const {
+    stats,
+    loading,
+    error,
+  } = useDashboard();
 
   const totalEquipe =
     stats.arcanjos +
@@ -161,13 +185,15 @@ export default function Dashboard() {
         {!loading && !error && (
           <div className="space-y-6">
 
-            <section className="rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-transparent to-transparent p-8">
+            <section className="rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/15 via-rose-500/5 to-transparent p-8">
               <p className="text-sm uppercase tracking-[0.2em] text-zinc-400">
                 Equipe Principal
               </p>
 
-              <h2 className="mt-3 text-6xl font-black">
-                {totalEquipe.toLocaleString("pt-BR")}
+              <h2 className="mt-3 text-5xl font-black md:text-6xl">
+                {totalEquipe.toLocaleString(
+                  "pt-BR"
+                )}
               </h2>
 
               <p className="mt-2 text-zinc-400">
