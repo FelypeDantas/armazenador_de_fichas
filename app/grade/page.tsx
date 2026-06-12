@@ -22,6 +22,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
+import { supabase } from "@/lib/supabaseClient";
+
 import { CSS } from "@dnd-kit/utilities";
 
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
