@@ -40,6 +40,7 @@ type Ficha = {
 type Dia = {
   id: string;
   fichaId: string | null;
+  ficha: Ficha | null;
 };
 
 /* ─────────────────────────────
@@ -72,6 +73,7 @@ const criarGrade = (
   Array.from({ length: tamanho }, () => ({
     id: uid(),
     fichaId: null,
+    ficha: null,
   }));
 
 const NORMAL_SIZE = 6;
@@ -146,75 +148,8 @@ function useGrade() {
     criarGrade(NORMAL_SIZE)
   );
 
-  const [fichas, setFichas] =
-    useState<Ficha[]>([]);
-
-  const [busca, setBusca] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(true);
-
   const [isExtendida, setIsExtendida] =
     useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    const fetchData = async () => {
-      try {
-        const { data, error } =
-          await supabase
-            .from("fichas")
-            .select(
-              "id, conteudo, deletado"
-            )
-            .not(
-              "deletado",
-              "eq",
-              true
-            );
-
-        if (!active) return;
-
-        if (error) {
-          throw error;
-        }
-
-        setFichas(data ?? []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const fichasMap = useMemo(
-    () =>
-      new Map(
-        fichas.map((f) => [f.id, f])
-      ),
-    [fichas]
-  );
-
-  const fichasFiltradas = useMemo(() => {
-    const q = busca.toLowerCase();
-
-    return fichas.filter((f) =>
-      f.conteudo
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [busca, fichas]);
 
   const alerta = useMemo(() => {
     const conflitos: string[] = [];
@@ -222,8 +157,7 @@ function useGrade() {
     dias.forEach((dia, index) => {
       if (!dia.fichaId) return;
 
-      const ficha =
-        fichasMap.get(dia.fichaId);
+      const ficha = dia.ficha;
 
       if (!ficha) return;
 
@@ -254,24 +188,24 @@ function useGrade() {
   }, [dias, fichasMap]);
 
   const selectFicha = useCallback(
-    (
-      diaId: string,
-      fichaId: string
-    ) => {
-      setDias((prev) =>
-        prev.map((d) =>
-          d.id === diaId
-            ? {
-                ...d,
-                fichaId:
-                  fichaId || null,
-              }
-            : d
-        )
-      );
-    },
-    []
-  );
+  (
+    diaId: string,
+    ficha: Ficha
+  ) => {
+    setDias((prev) =>
+      prev.map((d) =>
+        d.id === diaId
+          ? {
+              ...d,
+              fichaId: ficha.id,
+              ficha,
+            }
+          : d
+      )
+    );
+  },
+  []
+);
 
   const toggleGrade =
     useCallback(() => {
@@ -341,12 +275,7 @@ function useGrade() {
       "❛ ━━━━━━━━━━━━━━━━ ❜\n";
 
     dias.forEach((dia, index) => {
-      const ficha =
-        dia.fichaId
-          ? fichasMap.get(
-              dia.fichaId
-            )
-          : null;
+      const ficha = dia.ficha;
 
       const nomeDia =
         index === dias.length - 1
@@ -366,7 +295,7 @@ function useGrade() {
     });
 
     return texto;
-  }, [dias, fichasMap, nomeGrade]);
+  }, [dias, nomeGrade]);
 
   const copyGrade = useCallback(
     async () => {
@@ -385,10 +314,7 @@ function useGrade() {
     nomeGrade,
     setNomeGrade,
     dias,
-    fichasFiltradas,
-    busca,
-    setBusca,
-    loading,
+    loading: false,
     isExtendida,
     alerta,
     selectFicha,
@@ -407,10 +333,6 @@ export default function GradePage() {
     nomeGrade,
     setNomeGrade,
     dias,
-    fichasFiltradas,
-    busca,
-    setBusca,
-    loading,
     isExtendida,
     alerta,
     selectFicha,
@@ -435,9 +357,7 @@ export default function GradePage() {
 
         <Inputs
           nomeGrade={nomeGrade}
-          busca={busca}
           setNomeGrade={setNomeGrade}
-          setBusca={setBusca}
         />
 
         <ToggleButton
@@ -469,9 +389,13 @@ export default function GradePage() {
                     diasLength={
                       dias.length
                     }
-                    fichas={
-                      fichasFiltradas
-                    }
+                    <SortableDay
+                        key={dia.id}
+                        dia={dia}
+                        index={index}
+                        diasLength={dias.length}
+                        onSelect={selectFicha}
+                      />
                     onSelect={
                       selectFicha
                     }
@@ -524,21 +448,15 @@ const Alert = memo(function Alert({
 
 const Inputs = memo(function Inputs({
   nomeGrade,
-  busca,
   setNomeGrade,
-  setBusca,
 }: {
   nomeGrade: string;
-  busca: string;
   setNomeGrade: (
-    value: string
-  ) => void;
-  setBusca: (
     value: string
   ) => void;
 }) {
   return (
-    <div className="space-y-3">
+    <div>
       <input
         value={nomeGrade}
         onChange={(e) =>
@@ -547,17 +465,6 @@ const Inputs = memo(function Inputs({
           )
         }
         placeholder="Nome da grade"
-        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 p-3"
-      />
-
-      <input
-        value={busca}
-        onChange={(e) =>
-          setBusca(
-            e.target.value
-          )
-        }
-        placeholder="Buscar ficha..."
         className="w-full rounded-xl border border-zinc-700 bg-zinc-800 p-3"
       />
     </div>
@@ -590,76 +497,121 @@ const SortableDay = memo(
     dia,
     index,
     diasLength,
-    fichas,
     onSelect,
   }: {
     dia: Dia;
     index: number;
     diasLength: number;
-    fichas: Ficha[];
     onSelect: (
       diaId: string,
-      fichaId: string
+      ficha: Ficha
     ) => void;
   }) {
     const [termo, setTermo] =
       useState("");
 
-    const fichasFiltradas =
-      useMemo(() => {
-        if (!termo.trim()) {
-          return fichas.slice(0, 10);
-        }
+    const [resultados, setResultados] =
+      useState<Ficha[]>([]);
 
-        return fichas
-          .filter((f) =>
-            f.conteudo
-              .toLowerCase()
-              .includes(
-                termo.toLowerCase()
-              )
-          )
-          .slice(0, 10);
-      }, [termo, fichas]);
+    const [loadingBusca, setLoadingBusca] =
+      useState(false);
+
+    useEffect(() => {
+      if (termo.length < 2) {
+        setResultados([]);
+        return;
+      }
+
+      const timeout =
+        setTimeout(async () => {
+          try {
+            setLoadingBusca(true);
+
+            const { data } =
+              await supabase
+                .from("fichas")
+                .select(
+                  "id, conteudo"
+                )
+                .ilike(
+                  "conteudo",
+                  `%${termo}%`
+                )
+                .not(
+                  "deletado",
+                  "eq",
+                  true
+                )
+                .limit(10);
+
+            setResultados(
+              data ?? []
+            );
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setLoadingBusca(false);
+          }
+        }, 300);
+
+      return () =>
+        clearTimeout(timeout);
+    }, [termo]);
 
     return (
       <SortableItem id={dia.id}>
         <article className="rounded-2xl bg-zinc-900 p-4">
-
           <h2 className="font-semibold text-pink-400">
-            {index === diasLength - 1
+            {index ===
+            diasLength - 1
               ? "Obra Extra"
-              : DIAS_SEMANA[index % 5]}
+              : DIAS_SEMANA[
+                  index % 5
+                ]}
           </h2>
+
+          {dia.ficha && (
+            <div className="mt-3 rounded-lg bg-green-900/30 p-2 text-green-300">
+              {extrairTitulo(
+                dia.ficha.conteudo
+              )}
+            </div>
+          )}
 
           <input
             type="text"
-            placeholder="Pesquisar ficha..."
             value={termo}
             onChange={(e) =>
               setTermo(
                 e.target.value
               )
             }
+            placeholder="Pesquisar ficha..."
             className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-800 p-3"
           />
 
-          <div className="mt-3 max-h-64 overflow-y-auto space-y-2">
-            {fichasFiltradas.map(
-              (f) => (
+          {loadingBusca && (
+            <p className="mt-2 text-zinc-400">
+              Pesquisando...
+            </p>
+          )}
+
+          <div className="mt-3 space-y-2">
+            {resultados.map(
+              (ficha) => (
                 <button
-                  key={f.id}
+                  key={ficha.id}
                   type="button"
                   onClick={() =>
                     onSelect(
                       dia.id,
-                      f.id
+                      ficha
                     )
                   }
-                  className="block w-full rounded-lg bg-zinc-800 p-2 text-left transition hover:bg-zinc-700"
+                  className="block w-full rounded-lg bg-zinc-800 p-2 text-left hover:bg-zinc-700"
                 >
                   {extrairTitulo(
-                    f.conteudo
+                    ficha.conteudo
                   )}
                 </button>
               )
