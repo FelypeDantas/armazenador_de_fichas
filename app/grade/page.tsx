@@ -553,64 +553,61 @@ const SortableDay = memo(
 
     return (
       <SortableItem id={dia.id}>
-        <article className="rounded-2xl bg-zinc-900 p-4">
-          <h2 className="font-semibold text-pink-400">
-            {index ===
-            diasLength - 1
-              ? "Obra Extra"
-              : DIAS_SEMANA[
-                  index % 5
-                ]}
-          </h2>
-
-          {dia.ficha && (
-            <div className="mt-3 rounded-lg bg-green-900/30 p-2 text-green-300">
-              {extrairTitulo(
-                dia.ficha.conteudo
-              )}
+        {({ attributes, listeners }) => (
+          <article className="rounded-2xl bg-zinc-900 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-pink-400">
+                {index === diasLength - 1
+                  ? "Obra Extra"
+                  : DIAS_SEMANA[index % 5]}
+              </h2>
+    
+              <button
+                type="button"
+                {...attributes}
+                {...listeners}
+                className="cursor-grab rounded-lg bg-zinc-800 px-3 py-1 hover:bg-zinc-700"
+              >
+                ☰
+              </button>
             </div>
-          )}
-
-          <input
-            type="text"
-            value={termo}
-            onChange={(e) =>
-              setTermo(
-                e.target.value
-              )
-            }
-            placeholder="Pesquisar ficha..."
-            className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-800 p-3"
-          />
-
-          {loadingBusca && (
-            <p className="mt-2 text-zinc-400">
-              Pesquisando...
-            </p>
-          )}
-
-          <div className="mt-3 space-y-2">
-            {resultados.map(
-              (ficha) => (
+    
+            {dia.ficha && (
+              <div className="mt-3 rounded-lg bg-green-900/30 p-2 text-green-300">
+                {extrairTitulo(dia.ficha.conteudo)}
+              </div>
+            )}
+    
+            <input
+              type="text"
+              value={termo}
+              onChange={(e) => setTermo(e.target.value)}
+              placeholder="Pesquisar ficha..."
+              className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-800 p-3"
+            />
+    
+            {loadingBusca && (
+              <p className="mt-2 text-zinc-400">
+                Pesquisando...
+              </p>
+            )}
+    
+            <div className="mt-3 space-y-2">
+              {resultados.map((ficha) => (
                 <button
                   key={ficha.id}
                   type="button"
                   onClick={() =>
-                    onSelect(
-                      dia.id,
-                      ficha
-                    )
+                    onSelect(dia.id, ficha)
                   }
                   className="block w-full rounded-lg bg-zinc-800 p-2 text-left hover:bg-zinc-700"
                 >
-                  {extrairTitulo(
-                    ficha.conteudo
-                  )}
+                  {extrairTitulo(ficha.conteudo)}
                 </button>
-              )
-            )}
-          </div>
-        </article>
+              ))}
+            </div>
+          </article>
+        )}
       </SortableItem>
     );
   }
