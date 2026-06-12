@@ -185,7 +185,7 @@ function useGrade() {
           " • "
         )}`
       : null;
-  }, [dias, fichasMap]);
+  }, [dias]);
 
   const selectFicha = useCallback(
   (
@@ -193,15 +193,15 @@ function useGrade() {
     ficha: Ficha
   ) => {
     setDias((prev) =>
-      prev.map((d) =>
-        d.id === diaId
-          ? {
-              ...d,
-              fichaId: ficha.id,
-              ficha,
-            }
-          : d
-      )
+      prev.map((d) => {
+        if (d.id !== diaId) return d;
+    
+        return {
+          ...d,
+          fichaId: ficha.id,
+          ficha,
+        };
+      })
     );
   },
   []
@@ -329,10 +329,11 @@ function useGrade() {
 ──────────────────────────── */
 
 export default function GradePage() {
-  const {
+   const {
     nomeGrade,
     setNomeGrade,
     dias,
+    loading,
     isExtendida,
     alerta,
     selectFicha,
@@ -380,25 +381,15 @@ export default function GradePage() {
             }
           >
             <div className="space-y-3">
-              {dias.map(
-                (dia, index) => (
+              {dias.map((dia, index) => (
                   <SortableDay
                     key={dia.id}
                     dia={dia}
                     index={index}
-                    diasLength={
-                      dias.length
-                    }
-                    <SortableDay
-                        key={dia.id}
-                        dia={dia}
-                        index={index}
-                        diasLength={dias.length}
-                        onSelect={selectFicha}
-                      />
-                    onSelect={
-                      selectFicha
-                    }
+                    diasLength={dias.length}
+                    onSelect={selectFicha}
+                  />
+                ))}
                   />
                 )
               )}
