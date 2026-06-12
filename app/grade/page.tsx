@@ -615,33 +615,23 @@ const SortableDay = memo(
                 ]}
           </h2>
 
-          <select
-            value={
-              dia.fichaId ?? ""
-            }
-            onChange={(e) =>
-              onSelect(
-                dia.id,
-                e.target.value
-              )
-            }
-            className="mt-3 w-full rounded-xl bg-zinc-800 p-3"
-          >
-            <option value="">
-              Selecionar ficha
-            </option>
-
-            {fichas.map((f) => (
-              <option
+          <input
+            type="text"
+            placeholder="Pesquisar ficha..."
+            value={termo}
+            onChange={(e) => setTermo(e.target.value)}
+          />
+          
+          <div>
+            {fichasFiltradas.slice(0, 10).map((f) => (
+              <button
                 key={f.id}
-                value={f.id}
+                onClick={() => onSelect(dia.id, f.id)}
               >
-                {extrairTitulo(
-                  f.conteudo
-                )}
-              </option>
+                {extrairTitulo(f.conteudo)}
+              </button>
             ))}
-          </select>
+          </div>
         </article>
       </SortableItem>
     );
