@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 
 import {
@@ -22,8 +23,6 @@ import {
 } from "@dnd-kit/sortable";
 
 import { CSS } from "@dnd-kit/utilities";
-
-import { supabase } from "@/lib/supabaseClient";
 
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
 
@@ -110,7 +109,7 @@ const SortableItem = memo(function SortableItem({
   children,
 }: {
   id: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const {
     attributes,
@@ -390,9 +389,6 @@ export default function GradePage() {
                     onSelect={selectFicha}
                   />
                 ))}
-                  />
-                )
-              )}
             </div>
           </SortableContext>
         </DndContext>
