@@ -111,7 +111,12 @@ const SortableItem = memo(function SortableItem({
   children,
 }: {
   id: string;
-  children: ReactNode;
+  children: (
+    dragProps: {
+      attributes: Record<string, unknown>;
+      listeners: Record<string, unknown>;
+    }
+  ) => React.ReactNode;
 }) {
   const {
     attributes,
@@ -129,10 +134,11 @@ const SortableItem = memo(function SortableItem({
           CSS.Transform.toString(transform),
         transition,
       }}
-      {...attributes}
-      {...listeners}
     >
-      {children}
+      {children({
+        attributes,
+        listeners,
+      })}
     </div>
   );
 });
