@@ -107,41 +107,39 @@ const detectarGatilhos = (
 ──────────────────────────── */
 
 const SortableItem = memo(function SortableItem({
-  id,
-  children,
-}: {
-  id: string;
-  children: (
-    dragProps: {
-      attributes: Record<string, unknown>;
-      listeners: Record<string, unknown>;
-    }
-  ) => React.ReactNode;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id });
+    id,
+    children,
+  }: {
+    id: string;
+   children: (dragProps: {
+    attributes: any;
+    listeners: any;
+  }) => React.ReactNode;
+  }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+    } = useSortable({ id });
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform:
-          CSS.Transform.toString(transform),
-        transition,
-      }}
-    >
-      {children({
-        attributes,
-        listeners,
-      })}
-    </div>
-  );
-});
+    return (
+      <div
+        ref={setNodeRef}
+        style={{
+          transform:
+            CSS.Transform.toString(transform),
+          transition,
+        }}
+      >
+        {children({
+          attributes,
+          listeners,
+        })}
+      </div>
+    );
+  });
 
 /* ─────────────────────────────
    HOOK
