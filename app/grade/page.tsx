@@ -602,35 +602,68 @@ const SortableDay = memo(
       fichaId: string
     ) => void;
   }) {
+    const [termo, setTermo] =
+      useState("");
+
+    const fichasFiltradas =
+      useMemo(() => {
+        if (!termo.trim()) {
+          return fichas.slice(0, 10);
+        }
+
+        return fichas
+          .filter((f) =>
+            f.conteudo
+              .toLowerCase()
+              .includes(
+                termo.toLowerCase()
+              )
+          )
+          .slice(0, 10);
+      }, [termo, fichas]);
+
     return (
       <SortableItem id={dia.id}>
         <article className="rounded-2xl bg-zinc-900 p-4">
 
           <h2 className="font-semibold text-pink-400">
-            {index ===
-            diasLength - 1
+            {index === diasLength - 1
               ? "Obra Extra"
-              : DIAS_SEMANA[
-                  index % 5
-                ]}
+              : DIAS_SEMANA[index % 5]}
           </h2>
 
           <input
             type="text"
             placeholder="Pesquisar ficha..."
             value={termo}
-            onChange={(e) => setTermo(e.target.value)}
+            onChange={(e) =>
+              setTermo(
+                e.target.value
+              )
+            }
+            className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-800 p-3"
           />
-          
-          <div>
-            {fichasFiltradas.slice(0, 10).map((f) => (
-              <button
-                key={f.id}
-                onClick={() => onSelect(dia.id, f.id)}
-              >
-                {extrairTitulo(f.conteudo)}
-              </button>
-            ))}
+
+          <div className="mt-3 max-h-64 overflow-y-auto space-y-2">
+            {fichasFiltradas.map(
+              (f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() =>
+                    onSelect(
+                      dia.id,
+                      f.id
+                    )
+                  }
+                  className="block w-full rounded-lg bg-zinc-800 p-2 text-left transition hover:bg-zinc-700"
+                >
+                  {extrairTitulo(
+                    f.conteudo
+                  )}
+                </button>
+              )
+            )}
           </div>
         </article>
       </SortableItem>
