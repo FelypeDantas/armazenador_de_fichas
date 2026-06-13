@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 
 import { useFichas } from "@/hooks/useFichas";
 
@@ -8,13 +9,27 @@ import MembrosHeader from "@/components/membros/MembrosHeader";
 import FichaCard from "@/components/membros/FichaCard";
 import FichaEditModal from "@/components/membros/FichaEditModal";
 import Pagination from "@/components/membros/Pagination";
-import { extractFirstLine, limparFormatacaoWhatsApp } from "@/lib/fichaUtils";
+
+import {
+  extractFirstLine,
+  limparFormatacaoWhatsApp,
+} from "@/lib/fichaUtils";
+
+import { obterCategoriaPorIdade } from "@/lib/idadeUtils";
 
 import { Ficha } from "@/types/fichas";
 
 const ITEMS_PER_PAGE = 12;
 
 export default function MembrosPage() {
+  const params = useParams();
+
+  const tipo =
+    params?.tipo as
+      | "vermelhas"
+      | "brancas"
+      | undefined;
+
   const {
     fichas,
     setFichas,
@@ -27,28 +42,53 @@ export default function MembrosPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const [selected, setSelected] = useState<Ficha | null>(null);
-  const [editText, setEditText] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [selected, setSelected] =
+    useState<Ficha | null>(null);
+
+  const [editText, setEditText] =
+    useState("");
+
+  const [saving, setSaving] =
+    useState(false);
 
   useEffect(() => {
     setPage(1);
   }, [search]);
 
   const paginatedData = useMemo(() => {
-    const q = search.toLowerCase().trim();
-
     let base = fichas;
 
+    // 🌹 filtro da rota
+    if (
+      tipo === "vermelhas" ||
+      tipo === "brancas"
+    ) {
+      base = base.filter(
+        (f) =>
+          obterCategoriaPorIdade(
+            f.conteudo
+          ) === tipo
+      );
+    }
+
+    // 🔍 busca
+    const q = search.toLowerCase().trim();
+
     if (q) {
-      base = fichas.filter((f) =>
-        f.conteudo.toLowerCase().includes(q)
+      base = base.filter((f) =>
+        f.conteudo
+          .toLowerCase()
+          .includes(q)
       );
     }
 
     const sorted = [...base].sort((a, b) =>
-      extractFirstLine(a.conteudo).localeCompare(
-        extractFirstLine(b.conteudo),
+      extractFirstLine(
+        a.conteudo
+      ).localeCompare(
+        extractFirstLine(
+          b.conteudo
+        ),
         "pt-BR"
       )
     );
@@ -62,11 +102,15 @@ export default function MembrosPage() {
       page * ITEMS_PER_PAGE
     );
 
-    const groups: Record<string, Ficha[]> = {};
+    const groups: Record<
+      string,
+      Ficha[]
+    > = {};
 
     currentItems.forEach((ficha) => {
       const titulo =
-        ficha.titulos?.titulo || "Sem título";
+        ficha.titulos?.titulo ||
+        "Sem título";
 
       if (!groups[titulo]) {
         groups[titulo] = [];
@@ -79,7 +123,12 @@ export default function MembrosPage() {
       groups,
       totalPages,
     };
-  }, [fichas, search, page]);
+  }, [
+    fichas,
+    search,
+    page,
+    tipo,
+  ]);
 
   async function handleUpdate() {
     if (!selected) return;
@@ -87,11 +136,13 @@ export default function MembrosPage() {
     try {
       setSaving(true);
 
-      const fichaAtualizada = await updateFicha(
-        selected.id,
-        editText,
-        selected.titulos?.id || null
-      );
+      const fichaAtualizada =
+        await updateFicha(
+          selected.id,
+          editText,
+          selected.titulos?.id ||
+            null
+        );
 
       setFichas((prev) =>
         prev.map((f) =>
@@ -103,14 +154,22 @@ export default function MembrosPage() {
 
       setSelected(null);
     } catch {
-      alert("Erro ao atualizar ficha");
+      alert(
+        "Erro ao atualizar ficha"
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Deseja excluir essa ficha?")) {
+  async function handleDelete(
+    id: string
+  ) {
+    if (
+      !confirm(
+        "Deseja excluir essa ficha?"
+      )
+    ) {
       return;
     }
 
@@ -118,58 +177,84 @@ export default function MembrosPage() {
       await deleteFicha(id);
 
       setFichas((prev) =>
-        prev.filter((f) => f.id !== id)
+        prev.filter(
+          (f) => f.id !== id
+        )
       );
     } catch {
-      alert("Erro ao excluir ficha");
+      alert(
+        "Erro ao excluir ficha"
+      );
     }
   }
+
+  const tituloPagina =
+    tipo === "vermelhas"
+      ? "🌹 Rosas Vermelhas"
+      : tipo === "brancas"
+      ? "🤍 Rosas Brancas"
+      : "Membros cadastrados";
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--fg)] px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
       <div className="max-w-6xl mx-auto">
 
         <MembrosHeader
-          title="Membros cadastrados"
+          title={tituloPagina}
           subtitle="Arquivo vivo de todas as fichas enviadas"
           search={search}
           onSearchChange={setSearch}
         />
 
         {!loading &&
-          Object.keys(paginatedData.groups).length >
-          0 && (
+          Object.keys(
+            paginatedData.groups
+          ).length > 0 && (
             <div className="space-y-10">
-
               {Object.entries(
                 paginatedData.groups
-              ).map(([titulo, lista]) => (
-                <section key={titulo}>
-                  <h2 className="text-lg font-semibold mb-4 text-zinc-500">
-                    {titulo}
-                  </h2>
+              ).map(
+                ([titulo, lista]) => (
+                  <section
+                    key={titulo}
+                  >
+                    <h2 className="text-lg font-semibold mb-4 text-zinc-500">
+                      {titulo}
+                    </h2>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                    {lista.map((ficha) => (
-                      <FichaCard
-                        key={ficha.id}
-                        ficha={ficha}
-                        onEdit={() => {
-                          setSelected(ficha);
-                          setEditText(
-                            limparFormatacaoWhatsApp(
-                              ficha.conteudo
-                            )
-                          );
-                        }}
-                        onDelete={() =>
-                          handleDelete(ficha.id)
-                        }
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                      {lista.map(
+                        (ficha) => (
+                          <FichaCard
+                            key={
+                              ficha.id
+                            }
+                            ficha={
+                              ficha
+                            }
+                            onEdit={() => {
+                              setSelected(
+                                ficha
+                              );
+
+                              setEditText(
+                                limparFormatacaoWhatsApp(
+                                  ficha.conteudo
+                                )
+                              );
+                            }}
+                            onDelete={() =>
+                              handleDelete(
+                                ficha.id
+                              )
+                            }
+                          />
+                        )
+                      )}
+                    </div>
+                  </section>
+                )
+              )}
 
               <Pagination
                 page={page}
@@ -182,12 +267,11 @@ export default function MembrosPage() {
           )}
 
         {!loading &&
-          Object.keys(paginatedData.groups).length ===
-          0 && (
+          Object.keys(
+            paginatedData.groups
+          ).length === 0 && (
             <div className="mt-8 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl p-6 text-center text-gray-500">
-              {search
-                ? "Nenhuma ficha corresponde à busca."
-                : "Nenhuma ficha cadastrada ainda."}
+              Nenhuma ficha encontrada.
             </div>
           )}
       </div>
@@ -196,22 +280,32 @@ export default function MembrosPage() {
         open={!!selected}
         ficha={selected}
         editText={editText}
-        onEditTextChange={setEditText}
+        onEditTextChange={
+          setEditText
+        }
         titulos={titulos}
         saving={saving}
-        onClose={() => setSelected(null)}
+        onClose={() =>
+          setSelected(null)
+        }
         onSave={handleUpdate}
-        onTituloChange={(tituloId) => {
-          const tituloSelecionado = titulos.find(
-            (t) => t.id === tituloId
-          );
+        onTituloChange={(
+          tituloId
+        ) => {
+          const tituloSelecionado =
+            titulos.find(
+              (t) =>
+                t.id ===
+                tituloId
+            );
 
           setSelected((prev) =>
             prev
               ? {
-                ...prev,
-                titulos: tituloSelecionado,
-              }
+                  ...prev,
+                  titulos:
+                    tituloSelecionado,
+                }
               : null
           );
         }}
@@ -219,9 +313,10 @@ export default function MembrosPage() {
           setSelected((prev) =>
             prev
               ? {
-                ...prev,
-                titulos: undefined,
-              }
+                  ...prev,
+                  titulos:
+                    undefined,
+                }
               : null
           )
         }
