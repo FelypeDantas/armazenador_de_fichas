@@ -54,7 +54,7 @@ export default function Home() {
           variants={animation.item}
           className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-[var(--primary)] to-[var(--primary-strong)] bg-clip-text text-transparent"
         >
-          🌹 Dark Roses
+          🌹 Sangue Carmesim
         </motion.h1>
 
         <motion.p
@@ -74,13 +74,6 @@ export default function Home() {
             className="px-6 py-3 rounded-2xl font-semibold border border-[var(--border)] hover:bg-[var(--muted)] transition backdrop-blur"
           >
             Criar ficha
-          </Link>
-
-          <Link
-            href="/membros"
-            className="px-6 py-3 rounded-2xl font-semibold border border-[var(--border)] hover:bg-[var(--muted)] transition backdrop-blur"
-          >
-            Ver membros
           </Link>
         </motion.div>
       </motion.section>
