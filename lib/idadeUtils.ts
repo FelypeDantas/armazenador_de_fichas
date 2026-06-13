@@ -41,7 +41,7 @@ export function calcularIdade(
 
 export function obterCategoriaPorIdade(
   conteudo: string
-): "branca" | "vermelha" | null {
+): "brancas" | "vermelhas" | null {
   const data =
     extrairDataNascimento(conteudo);
 
@@ -50,6 +50,6 @@ export function obterCategoriaPorIdade(
   const idade = calcularIdade(data);
 
   return idade < 18
-    ? "branca"
-    : "vermelha";
+    ? "brancas"
+    : "vermelhas";
 }
