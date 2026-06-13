@@ -12,7 +12,6 @@ import {
   X,
   LayoutDashboard,
   LogOut,
-  ClipboardList,
   Trash2,
   Pencil,
   Heading
@@ -27,7 +26,19 @@ import { supabase } from "@/lib/supabaseClient";
 
 const links = [
   { name: "Início", href: "/", icon: Home },
-  { name: "Membros", href: "/membros", icon: Users },
+
+  {
+    name: "🌹 Rosas Vermelhas",
+    href: "/rosas/vermelhas",
+    icon: Users,
+  },
+
+  {
+    name: "🤍 Rosas Brancas",
+    href: "/rosas/brancas",
+    icon: Users,
+  },
+
   { name: "Grade", href: "/grade", icon: Settings },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Títulos", href: "/titulos", icon: Heading },
@@ -131,18 +142,19 @@ export default function Navbar() {
 
   const renderLink = (link: (typeof links)[0]) => {
     const Icon = link.icon;
-    const active = pathname === link.href;
+    const active =
+      pathname === link.href ||
+      pathname.startsWith(link.href + "/");
 
     return (
       <Link key={link.href} href={link.href}>
         <motion.div
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.95 }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition ${
-            active
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition ${active
               ? "bg-rose-600/20 text-rose-400"
               : "text-gray-300 hover:text-white hover:bg-white/5"
-          }`}
+            }`}
         >
           <Icon size={18} />
           {link.name}
@@ -162,7 +174,7 @@ export default function Navbar() {
 
           {/* LOGO */}
           <div className="text-xl font-semibold text-white">
-            🌹 Dark Roses
+            🌹 Sangue Carmesim
           </div>
 
           {/* DESKTOP NAV */}
