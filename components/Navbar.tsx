@@ -28,13 +28,13 @@ const links = [
   { name: "Início", href: "/", icon: Home },
 
   {
-    name: "🌹 Rosas Vermelhas",
+    name: "Rosas Vermelhas",
     href: "/rosas/vermelhas",
     icon: Users,
   },
 
   {
-    name: "🤍 Rosas Brancas",
+    name: "Rosas Brancas",
     href: "/rosas/brancas",
     icon: Users,
   },
