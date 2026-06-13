@@ -10,7 +10,7 @@ import FichaEditModal from "@/components/membros/FichaEditModal";
 import Pagination from "@/components/membros/Pagination";
 
 import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
-import { extractFirstLine } from "@/lib/fichaUtils";
+import { extractFirstLine, limparFormatacaoWhatsApp } from "@/lib/fichaUtils";
 
 import { Ficha } from "@/types/fichas";
 
@@ -159,7 +159,7 @@ export default function MembrosPage() {
                         onEdit={() => {
                           setSelected(ficha);
                           setEditText(
-                            formatarParaWhatsApp(
+                            limparFormatacaoWhatsApp(
                               ficha.conteudo
                             )
                           );
