@@ -8,8 +8,6 @@ import MembrosHeader from "@/components/membros/MembrosHeader";
 import FichaCard from "@/components/membros/FichaCard";
 import FichaEditModal from "@/components/membros/FichaEditModal";
 import Pagination from "@/components/membros/Pagination";
-
-import { formatarParaWhatsApp } from "@/lib/FormatarFicha";
 import { extractFirstLine, limparFormatacaoWhatsApp } from "@/lib/fichaUtils";
 
 import { Ficha } from "@/types/fichas";
