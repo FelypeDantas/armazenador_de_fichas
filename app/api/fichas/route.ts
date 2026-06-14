@@ -10,7 +10,7 @@ import {
 } from "@/lib/fichaValidators";
 
 import {
-  buscarFichas,
+  listarFichas,
   criarFicha,
   tituloExiste,
 } from "@/lib/fichaRepository";
