@@ -24,7 +24,6 @@ type Body = {
 /* ──────────────────────────────────────────
    OPTIONS
 ────────────────────────────────────────── */
-
 export async function OPTIONS() {
   return corsResponse();
 }
