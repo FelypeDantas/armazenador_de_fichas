@@ -20,7 +20,7 @@ const CORS_HEADERS = {
    TYPES
 ────────────────────────────────────────── */
 
-type RequestBody = {
+type Body = {
   conteudo?: unknown;
   criado_por?: unknown;
   titulo_id?: unknown;
@@ -65,12 +65,17 @@ function fail(
   status = 400,
   details?: unknown
 ) {
+  const response: ApiResponse = {
+    success: false,
+    error,
+  };
+
+  if (details !== undefined) {
+    response.details = details;
+  }
+
   return jsonResponse(
-    {
-      success: false,
-      error,
-      ...(details ? { details } : {}),
-    },
+    response,
     status
   );
 }
@@ -88,27 +93,27 @@ function validarConteudo(
     );
   }
 
-  const conteudo = value.trim();
+  const texto = value.trim();
 
-  if (!conteudo) {
+  if (!texto) {
     throw new Error(
       "Conteúdo é obrigatório"
     );
   }
 
-  if (conteudo.length < 3) {
+  if (texto.length < 3) {
     throw new Error(
       "Ficha muito curta"
     );
   }
 
-  if (conteudo.length > 10_000) {
+  if (texto.length > 10_000) {
     throw new Error(
       "Ficha muito grande"
     );
   }
 
-  return conteudo;
+  return texto;
 }
 
 function validarTextoOpcional(
@@ -124,7 +129,7 @@ function validarTextoOpcional(
 }
 
 /* ──────────────────────────────────────────
-   DATABASE
+   DATABASE HELPERS
 ────────────────────────────────────────── */
 
 async function tituloExiste(
@@ -133,8 +138,12 @@ async function tituloExiste(
       typeof createSupabaseServerClient
     >
   >,
-  tituloId: string
+  tituloId: string | null
 ) {
+  if (!tituloId) {
+    return true;
+  }
+
   const { data, error } = await supabase
     .from("titulos")
     .select("id")
@@ -170,6 +179,7 @@ export async function GET() {
         id,
         conteudo,
         created_at,
+        criado_por,
         titulos (
           id,
           titulo
@@ -193,7 +203,6 @@ export async function GET() {
     }
 
     return success(data ?? []);
-
   } catch (error) {
     console.error(
       "[FICHAS_GET_FATAL]",
@@ -215,7 +224,7 @@ export async function POST(
   req: Request
 ) {
   try {
-    let body: RequestBody;
+    let body: Body;
 
     try {
       body = await req.json();
@@ -224,8 +233,6 @@ export async function POST(
         "JSON inválido"
       );
     }
-
-    /* VALIDAR DADOS */
 
     let conteudo: string;
 
@@ -239,36 +246,30 @@ export async function POST(
       );
     }
 
-    const titulo_id =
-      validarTextoOpcional(
-        body.titulo_id
-      );
-
     const criado_por =
       validarTextoOpcional(
         body.criado_por
       );
 
+    const titulo_id =
+      validarTextoOpcional(
+        body.titulo_id
+      );
+
     const supabase =
       await createSupabaseServerClient();
 
-    /* VALIDAR TÍTULO */
+    const tituloValido =
+      await tituloExiste(
+        supabase,
+        titulo_id
+      );
 
-    if (titulo_id) {
-      const exists =
-        await tituloExiste(
-          supabase,
-          titulo_id
-        );
-
-      if (!exists) {
-        return fail(
-          "Título inválido"
-        );
-      }
+    if (!tituloValido) {
+      return fail(
+        "Título inválido"
+      );
     }
-
-    /* INSERT */
 
     const { data, error } = await supabase
       .from("fichas")
@@ -302,8 +303,10 @@ export async function POST(
       );
     }
 
-    return success(data, 201);
-
+    return success(
+      data,
+      201
+    );
   } catch (error) {
     console.error(
       "[FICHAS_POST_FATAL]",
