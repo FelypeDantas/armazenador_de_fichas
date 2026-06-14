@@ -10,7 +10,7 @@ import {
 
 import {
   atualizarFicha,
-  excluirFicha,
+  removerFicha,
   tituloExiste,
 } from "@/lib/fichaRepository";
 
