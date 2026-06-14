@@ -1,21 +1,42 @@
+const IDADE_MAIORIDADE = 18;
+
+export type CategoriaRosa =
+  | "brancas"
+  | "vermelhas";
+
+/**
+ * Extrai a data de nascimento da ficha.
+ * Ex:
+ * Data de Nascimento: 01/05/2005
+ */
 export function extrairDataNascimento(
   conteudo: string
 ): Date | null {
-  const match = conteudo.match(
-    /Data de Nascimento.*?:\s*(\d{2})\/(\d{2})\/(\d{4})/i
-  );
+  const regex =
+    /data\s*de\s*nascimento.*?:\s*(\d{2})\/(\d{2})\/(\d{4})/i;
 
-  if (!match) return null;
+  const match = conteudo.match(regex);
+
+  if (!match) {
+    return null;
+  }
 
   const [, dia, mes, ano] = match;
 
-  return new Date(
+  const data = new Date(
     Number(ano),
     Number(mes) - 1,
     Number(dia)
   );
+
+  return Number.isNaN(data.getTime())
+    ? null
+    : data;
 }
 
+/**
+ * Calcula idade com base na data de nascimento.
+ */
 export function calcularIdade(
   nascimento: Date
 ): number {
@@ -25,31 +46,53 @@ export function calcularIdade(
     hoje.getFullYear() -
     nascimento.getFullYear();
 
-  const fezAniversario =
-    hoje.getMonth() > nascimento.getMonth() ||
+  const aindaNaoFezAniversario =
+    hoje.getMonth() < nascimento.getMonth() ||
     (
       hoje.getMonth() === nascimento.getMonth() &&
-      hoje.getDate() >= nascimento.getDate()
+      hoje.getDate() < nascimento.getDate()
     );
 
-  if (!fezAniversario) {
+  if (aindaNaoFezAniversario) {
     idade--;
   }
 
   return idade;
 }
 
-export function obterCategoriaPorIdade(
+/**
+ * Obtém idade diretamente do conteúdo.
+ */
+export function obterIdadeDaFicha(
   conteudo: string
-): "brancas" | "vermelhas" | null {
-  const data =
+): number | null {
+  const nascimento =
     extrairDataNascimento(conteudo);
 
-  if (!data) return null;
+  if (!nascimento) {
+    return null;
+  }
 
-  const idade = calcularIdade(data);
+  return calcularIdade(nascimento);
+}
 
-  return idade < 18
+/**
+ * Define a categoria automaticamente.
+ *
+ * < 18 anos  => Rosas Brancas
+ * >= 18 anos => Rosas Vermelhas
+ */
+export function obterCategoriaPorIdade(
+  conteudo: string
+): CategoriaRosa | null {
+  const idade =
+    obterIdadeDaFicha(conteudo);
+
+  if (idade === null) {
+    return null;
+  }
+
+  return idade < IDADE_MAIORIDADE
     ? "brancas"
     : "vermelhas";
 }
