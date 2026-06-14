@@ -105,7 +105,7 @@ export async function DELETE(
     }
 
     const ficha =
-      await excluirFicha(id);
+      await removerFicha(id);
 
     return success({
       deleted: ficha,
