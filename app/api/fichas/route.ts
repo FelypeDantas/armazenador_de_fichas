@@ -36,7 +36,7 @@ export async function OPTIONS() {
 export async function GET() {
   try {
     const fichas =
-      await buscarFichas();
+      await listarFichas();
 
     return success(fichas);
 
