@@ -47,7 +47,6 @@ export function fail(
   const body: ApiResponse = {
     success: false,
     error,
-    details?: unknown
   };
 
   if (details !== undefined) {
