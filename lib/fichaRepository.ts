@@ -40,15 +40,21 @@ export async function listarFichas() {
     });
 }
 
-export async function criarFicha(
-  conteudo: string,
-  criado_por: string | null,
-  titulo_id: string | null
-) {
+type CriarFichaParams = {
+  conteudo: string;
+  criado_por: string | null;
+  titulo_id: string | null;
+};
+
+export async function criarFicha({
+  conteudo,
+  criado_por,
+  titulo_id,
+}: CriarFichaParams) {
   const supabase =
     await createSupabaseServerClient();
 
-  return supabase
+  const { data, error } = await supabase
     .from("fichas")
     .insert({
       conteudo,
@@ -66,6 +72,12 @@ export async function criarFicha(
       )
     `)
     .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
 }
 
 export async function atualizarFicha(
