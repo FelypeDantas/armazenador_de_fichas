@@ -88,7 +88,7 @@ export async function atualizarFicha(
   const supabase =
     await createSupabaseServerClient();
 
-  return supabase
+  const { data, error } = await supabase
     .from("fichas")
     .update({
       conteudo,
@@ -105,6 +105,12 @@ export async function atualizarFicha(
       )
     `)
     .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
 }
 
 export async function removerFicha(
@@ -113,8 +119,12 @@ export async function removerFicha(
   const supabase =
     await createSupabaseServerClient();
 
-  return supabase
+  const { error } = await supabase
     .from("fichas")
     .delete()
     .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
