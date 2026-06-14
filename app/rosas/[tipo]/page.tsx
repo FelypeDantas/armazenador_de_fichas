@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-
 import { useFichas } from "@/hooks/useFichas";
 
 import MembrosHeader from "@/components/membros/MembrosHeader";
