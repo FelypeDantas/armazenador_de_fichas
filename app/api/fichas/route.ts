@@ -38,10 +38,20 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const fichas =
-      await listarFichas();
+    const {
+      data,
+      error,
+    } = await listarFichas();
 
-    return success(fichas);
+    if (error) {
+      return fail(
+        "Erro ao buscar fichas",
+        500,
+        error.message
+      );
+    }
+
+    return success(data ?? []);
 
   } catch (error) {
     console.error(
@@ -50,12 +60,11 @@ export async function GET() {
     );
 
     return fail(
-      "Erro ao buscar fichas",
+      "Erro interno no servidor",
       500
     );
   }
 }
-
 /* ──────────────────────────────────────────
    POST
 ────────────────────────────────────────── */
