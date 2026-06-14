@@ -66,11 +66,11 @@ export async function PUT(
     }
 
     const ficha =
-      await atualizarFicha({
+      await atualizarFicha(
         id,
         conteudo,
         titulo_id,
-      });
+      );
 
     return success(ficha);
 
