@@ -147,9 +147,11 @@ export default function FichaEditModal({
                   dark:border-zinc-700
                   bg-white
                   dark:bg-zinc-900
+                  text-zinc-900
+                  dark:text-zinc-100
                 "
               >
-                <option value="">
+                <option value="" className="bg-white dark:bg-zinc-900">
                   Sem título
                 </option>
 
@@ -157,6 +159,7 @@ export default function FichaEditModal({
                   <option
                     key={t.id}
                     value={t.id}
+                    className="bg-white dark:bg-zinc-900"
                   >
                     {t.titulo}
                   </option>
