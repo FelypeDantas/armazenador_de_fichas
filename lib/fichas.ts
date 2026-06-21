@@ -1,6 +1,6 @@
 export function getDataNascimento(conteudo: string): Date | null {
   const match = conteudo.match(
-    /Data de Nascimento:\*?\s*(\d{2}\/\d{2}\/\d{4})/i
+    /(\d{2}\/\d{2}\/\d{4})/
   );
 
   if (!match) return null;
