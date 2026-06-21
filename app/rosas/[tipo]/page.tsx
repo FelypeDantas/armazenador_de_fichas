@@ -118,11 +118,6 @@ export default function MembrosPage() {
       groups[titulo].push(ficha);
     });
 
-    console.log("BASE:", base.length);
-    console.log("SORTED:", sorted.length);
-    console.log("CURRENT ITEMS:", currentItems.length);
-    console.log("GROUPS:", groups);
-
     return {
       groups,
       totalPages,
