@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { limparFormatacaoWhatsApp } from "@/lib/fichaUtils";
 
 export async function tituloExiste(
   tituloId: string | null
@@ -57,7 +58,7 @@ export async function criarFicha({
   const { data, error } = await supabase
     .from("fichas")
     .insert({
-      conteudo,
+      conteudo: limparFormatacaoWhatsApp(conteudo),
       criado_por,
       titulo_id,
     })
