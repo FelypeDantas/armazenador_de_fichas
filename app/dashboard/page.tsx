@@ -27,6 +27,7 @@ const TITULOS_ARCANJOS = new Set([
   "Arcanjo Branco",
   "Arcanjo Dourado",
   "Arcanjo Carmesim",
+  "Arcanjo Lendário"
 ]);
 
 const INITIAL_STATS: DashboardStats = {
