@@ -1,37 +1,50 @@
-export function formatarParaWhatsApp(text: string) {
+export function formatarParaWhatsApp(text: string): string {
+  const regexLink = /^https?:\/\/\S+$/i;
+  const regexQuantidadePalavras = /quantidade de palavras/i;
+
   return text
     .split("\n")
-    .map((line, index) => {
-      const isFirst = index === 0;
+    .map((rawLine, index) => {
+      const line = rawLine.trim();
 
-      if (isFirst) {
-        return `*${line.trim()}*`;
+      if (!line) return "";
+
+      // Primeira linha sempre em negrito
+      if (index === 0) {
+        return `*${line}*`;
       }
 
-      const isQtdPalavras = /quantidade de palavras/i.test(line);
-
-      if (isQtdPalavras) {
-        return `*${line.trim()}*`;
-      }
-
-      const indexColon = line.indexOf(":");
-
-      if (indexColon === -1) {
+      // Destacar títulos das fichas como citação do WhatsApp
+      if (line.startsWith(">")) {
         return line;
       }
 
-      const key = line.slice(0, indexColon).trim();
-      const value = line.slice(indexColon + 1).trim();
-
-      // 🧠 DETECTA LINK
-      const isLink = /^https?:\/\/\S+$/i.test(value);
-
-      // 🔗 Se for link → NÃO aplica formatação no valor
-      if (isLink) {
-        return `*${key}:*\n${value}`;
+      // Caso queira detectar automaticamente alguns títulos
+      // (ajuste conforme sua necessidade)
+      if (/^(ficha|dados da ficha|informações da ficha)/i.test(line)) {
+        return `> ${line}`;
       }
 
-      return `*${key}:* ${value}`;
+      // Quantidade de palavras
+      if (regexQuantidadePalavras.test(line)) {
+        return `*${line}*`;
+      }
+
+      const [key, ...rest] = line.split(":");
+
+      // Não possui chave:valor
+      if (!rest.length) {
+        return line;
+      }
+
+      const value = rest.join(":").trim();
+
+      // Links ficam em uma linha separada
+      if (regexLink.test(value)) {
+        return `*${key.trim()}:*\n${value}`;
+      }
+
+      return `*${key.trim()}:* ${value}`;
     })
     .join("\n");
 }
